@@ -65,7 +65,7 @@ function parse_node(node: AnyNode) {
           // code.replace(node, code.slice(node.arguments[0].body.start, node.arguments[0].body.end - 1) + `,{map: ${dep}})`)
           // print(code.slice(node.arguments[0].body.start, node.arguments[0].body.end - 1))
           // print(code.slice(node.start, node.end))
-          code.insert(node.start, `h('$for',`);
+          code.insert(node.start, `h('$for', ()=>`);
           code.insert(node.end, ')')
 
           parse_node(node.arguments[0]);

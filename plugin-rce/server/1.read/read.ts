@@ -122,6 +122,7 @@ function read_function(node: FunctionNode, code: Code) {
           node.component_id = "__" + tag_name.replace('-', '_');
           node.type = 'custom_element';
           node.jsx = ret_node.argument;
+          node.return_start = ret_node.start;
 
           if (node.id?.type == 'Identifier') {
             node.caller_id = node.id.name;

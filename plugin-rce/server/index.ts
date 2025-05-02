@@ -98,6 +98,7 @@ export class Code {
   }
 
   insert(at: number, code: string) {
+    if (at == undefined) return;
     // print('INSERT', at, code)
     if (at == -1) {
       at = this.source.length;

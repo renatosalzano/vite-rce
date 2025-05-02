@@ -4,7 +4,9 @@ import { $state } from "rce";
 interface Fragment extends DocumentFragment {
   target: HTMLElement;
   slot: HTMLSlotElement;
+  list_content: HTMLElement[];
   content: HTMLElement;
+  condition: boolean;
 }
 
 
@@ -21,6 +23,11 @@ function createConfig<T extends object>(element_name: string) {
     state = new Map<string, any>();
     elements: (HTMLElement | Fragment)[] = [];
     element_index = 0;
+    element_list = new Map<number, (HTMLElement | Fragment)[]>();
+
+    caching_list = false;
+
+    methods = new Set<Function>();
 
     mutations = new Mutations();
     skip_element_cache = new Set();
@@ -28,7 +35,9 @@ function createConfig<T extends object>(element_name: string) {
     $: { [key: string]: unknown }
 
     constructor() {
+
       const self = this;
+
       this.$ = new Proxy({}, {
         set(t, k, v) {
           console.log('update', k, v)
@@ -52,35 +61,31 @@ function createConfig<T extends object>(element_name: string) {
           switch (value.constructor) {
             case Object:
               const values = Object.values(value);
-              // this.state.set(dep, values[index]);
-              this.$[dep] = values[index];
+              this.state.set(dep, values[index]);
+              // this.$[dep] = values[index];
               index++;
               break;
             case Array:
-              // this.state.set(dep, value[index]);
-              this.$[dep] = value[index];
+              this.state.set(dep, value[index]);
+              // this.$[dep] = value[index];
               index++;
               break;
             default:
-              // this.state.set(dep, value);
-              this.$[dep] = value;
+              this.state.set(dep, value);
+            // this.$[dep] = value;
           }
         }
       }
       return value;
     }
 
+    update_state() {
 
-    // batch(state: { [key: string]: any }) {
-    //   // console.log(state)
+      // use for optimization???
+      // const new_state = this.batch() as { [key: string]: unknown };
 
-    //   for (const k in state) {
-    //     this.state.set(k, state[k]);
-    //   }
-
-    //   console.log(this.state)
-    //   this.update();
-    // }
+      this.update();
+    }
 
 
     h = (tag: string, props: any, ...children: any[]) => {
@@ -89,9 +94,11 @@ function createConfig<T extends object>(element_name: string) {
         return children;
       }
 
-      if (this.elements[this.element_index]) {
+      if (this.elements[this.element_index] && !this.caching_list) {
 
         const element = this.elements[this.element_index];
+
+        // console.log('cached', element)
 
         if (this.mutations.has(this.element_index)) {
           // console.log(element.childNodes)
@@ -109,18 +116,71 @@ function createConfig<T extends object>(element_name: string) {
                 const fragment = element as Fragment;
 
                 switch (mutation.operator) {
+
                   case "if":
-                    // console.log('if', props, fragment.target)
-                    if (props && fragment.target.isEqualNode(fragment.slot)) {
-                      fragment.target.replaceWith(fragment.content)
-                    } else {
-                      fragment.target.replaceWith(fragment.slot)
+                    if (props != fragment.condition) {
+
+                      const element = props
+                        ? fragment.content
+                        : fragment.slot;
+
+                      fragment.target.replaceWith(element);
+                      fragment.target = element;
+                      fragment.condition = props;
+
                     }
                     break;
+
                   case "for":
+                    // console.log('for', tag, props, children)
+
+                    this.element_list.set(this.element_index, []);
+
+                    this.caching_list = true;
+                    const elements = props() || [];
+                    this.caching_list = false;
+
+
+                    const max_index = Math.max(elements.length, fragment.list_content.length);
+
+                    // console.log(fragment.list_content)
+                    let last_element;
+
+                    for (let i = 0; i < max_index; i++) {
+
+                      if (i < elements.length) {
+
+                        if (fragment.list_content[i]) {
+
+                          if (!fragment.list_content[i].isEqualNode(elements[i])) {
+                            fragment.list_content[i].replaceWith(elements[i]);
+                            fragment.list_content[i] = elements[i];
+                            last_element = elements[i];
+                            console.log('replace')
+                          } else {
+                            last_element = fragment.list_content[i];
+                            console.log('keep')
+                          }
+                        } else {
+
+                          fragment.list_content[i] = elements[i]
+                          last_element.after(elements[i])
+                          last_element = elements[i];
+                          console.log('add')
+                        }
+
+                      } else {
+                        fragment.list_content[i].remove();
+                        fragment.list_content.pop();
+                      }
+                    }
+
+                    // fragment.list_content = elements;
+                    // console.dir(fragment.content)
                     break;
+
                   case "ternary":
-                    (element as Fragment).target.replaceWith(props);
+                    fragment.target.replaceWith(props);
                     break;
                 }
                 break;
@@ -148,21 +208,37 @@ function createConfig<T extends object>(element_name: string) {
 
           switch (tag) {
             case '$if':
-              console.log('create if')
               // props as condition
               fragment.content = children[0];
               fragment.slot = document.createElement('slot');
               fragment.target = props ? fragment.content : fragment.slot;
+              fragment.condition = props;
               fragment.append(fragment.target);
               break;
             case '$ternary':
+              // props as element
               fragment.target = props;
               fragment.append(props);
               break;
+            case '$for':
+              // props as elements
+              // console.log('create for', props, children)
+
+              this.caching_list = true;
+              const elements = props() || [];
+              this.caching_list = false;
+
+              fragment.list_content = elements;
+              fragment.slot = document.createElement('slot');
+              fragment.target = elements[0] || fragment.slot;
+
+              for (const element of elements) {
+                fragment.append(element);
+              }
+              break;
           }
 
-          this.elements[this.element_index] = fragment;
-          this.element_index++;
+          this.cache(fragment);
 
           return fragment;
         }
@@ -171,28 +247,56 @@ function createConfig<T extends object>(element_name: string) {
 
         for (const [attr, value] of Object.entries(props ?? {})) {
 
-          if (attr.startsWith('on')) {
-            element[attr] = value;
+          if (attr.startsWith('on') && typeof value == 'function') {
+
+            if (this.methods.has(value)) {
+              element[attr] = (event: any) => { value(event); this.update_state() };
+            } else {
+              element[attr] = value;
+            }
+
           } else {
             element.setAttribute(attr, value as string);
           }
         }
 
-
-
         append(element, children);
 
-        if (!this.skip_element_cache.has(this.element_index)) {
-          this.elements[this.element_index] = element;
-        }
-
-        this.element_index++;
-
+        this.cache(element)
         return element;
       }
 
 
     }
+
+
+    cache(element: HTMLElement | Fragment) {
+
+      if (this.caching_list) {
+
+        // console.log(this.elements, this.element_index)
+
+        if (this.element_list.has(this.element_index)) {
+
+          this.element_list
+            .get(this.element_index)
+            .push(element);
+
+        } else {
+          this.element_list.set(this.element_index, [element]);
+        }
+
+        return;
+      }
+
+      if (!this.skip_element_cache.has(this.element_index)) {
+        this.elements[this.element_index] = element;
+      }
+
+      this.element_index++;
+
+    }
+
 
 
     init = (tag: string, attr: any, ...children: any[]) => {
@@ -208,6 +312,8 @@ function createConfig<T extends object>(element_name: string) {
           this.mutations.set(this.element_index, { type: 'directive', operator: 'ternary' })
           break;
         case '$for':
+          this.mutations.set(this.element_index, { type: 'directive', operator: 'for' })
+          break;
       }
 
       // TEXT NODES
@@ -242,14 +348,14 @@ function createConfig<T extends object>(element_name: string) {
           constructor() {
             super();
             self.element_instance = this;
-
-            console.log(self.$)
             // self.instance = this;
           }
 
           connectedCallback() {
             console.log('mounted')
             const html = self.render(self.h);
+            console.log(self.elements);
+            console.log(self.element_list)
             self.is_mounted = true;
 
 
@@ -269,8 +375,8 @@ function createConfig<T extends object>(element_name: string) {
     }
 
     render = (_: Function) => { }
+    batch = () => ({})
   }
-
 }
 
 

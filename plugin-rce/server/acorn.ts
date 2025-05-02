@@ -9,6 +9,7 @@ export interface FunctionNode extends acorn.Function {
   type: 'FunctionDeclaration' | 'custom_element' | 'partial' | 'hook'
   stateless?: boolean;
   arrow?: boolean;
+  return_start?: number;
   jsx?: FactoryNode;
   props?: Set<string>;
   state?: Set<string>;

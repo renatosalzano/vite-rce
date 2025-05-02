@@ -23,10 +23,13 @@ function Component({ title = 'hello rce' }) {
   let counter = $state(0);
   // let { a: A, b, c: ALIAS } = $state({ a: 0, b: 1, c: 2 });
   // let [AAA, BBB] = $state(['a', 'b'])
-  // let array = $state([0, 1, 2, 3])
+  let array = $state([1, 2, 3])
   // let [bool] = $hook()
 
   function add() {
+
+    array.push(array.length + 1)
+    console.log(array)
     counter += 1;
 
     // function test() {
@@ -34,7 +37,11 @@ function Component({ title = 'hello rce' }) {
     // }
   }
 
-  const minus = () => counter -= 1
+  const minus = () => {
+    counter -= 1;
+
+    array.pop()
+  }
 
 
   const props = {}
@@ -46,14 +53,14 @@ function Component({ title = 'hello rce' }) {
       <strong>counter is {counter} {counter} {counter}</strong>
       <button onclick={add}>add</button>
       <button onclick={minus}>minus</button>
-      {counter > 1 && <div>
+      {/* {counter > 1 && <div>
         <div>
           <div>
             if
           </div>
         </div>
-      </div>}
-      {/* {array.map((ele) => (<p>{ele}</p>))} */}
+      </div>} */}
+      {array.map((ele) => (<p>{ele}</p>))}
       {/* {counter > 0 ? (<span>counter is greater than 0</span>) : (<span>counter is 0</span>)} */}
     </my-component>
   )
@@ -62,6 +69,15 @@ function Component({ title = 'hello rce' }) {
 /* 
 targets = [0]
 this.h({})
+
+const add = _id.method(function add() {
+    array.push(array.length + 1)
+    counter += 1;
+
+    // function test() {
+    //   counter;
+    // }
+  }, ['counter', 'array'])
 
 
 */

@@ -20,8 +20,6 @@ export function parse_custom_element(node: FunctionNode, code: Code) {
     `let ${component_id} = createConfig('${node.tag_name}');\n`
   )
 
-
-
   if (node.stateless) {
 
     // const replace = `(${component_id}.props(${_props_keys}), ${code.slice(node.body.start, node.body.end)})`
@@ -32,10 +30,6 @@ export function parse_custom_element(node: FunctionNode, code: Code) {
     let index = code.find_index(node.body.start, "{");
     code.insert(index, `\n${component_id}.props(${_props_keys});\n`);
     code.insert(node.jsx.start, `${component_id}.render = (h) =>`);
-  }
-
-  if (!node.stateless) {
-    parse_body(component_id, node, code)
   }
 
   node.return_deps = (code: string) => {
@@ -49,11 +43,13 @@ export function parse_custom_element(node: FunctionNode, code: Code) {
   // code.replace(node.jsx.arguments[0], component_id)
 
   // code.insert(-1, `console.log(${node.component_id});\n`)
-  code.insert(-1, `${component_id}.register(${node.caller_id});\n`);
   // code.insert(-1, `${component_id}.register('${node.tag_name}');\n`)
 
-  parse_jsx(node, code)
+  parse_body(component_id, node, code);
 
+  parse_jsx(node, code);
+
+  code.insert(-1, `${component_id}.register(${node.caller_id});\n`);
 }
 
 function parse_props(params) {

@@ -1,96 +1,199 @@
 import { acorn, type FunctionNode, type FunctionBody, return_keys, walk, recursive, ancestor, AnyNode } from "../acorn";
 import { Code } from "../";
 import { HOOK_START, STATE } from "../constant";
+import { print } from "../../utils/shortcode";
 
 function parse_body(id: string, fn_node: FunctionNode, code: Code) {
 
-  fn_node.state = new Set<string>()
+  fn_node.state = new Set<string>();
+  const methods = new Set<string>();
 
-  walk(fn_node.body, {
-    VariableDeclaration(node) {
+  function parse_method(caller: string, node: AnyNode) {
 
-      for (const var_node of node.declarations) {
-        switch (var_node.init?.type) {
-          case 'CallExpression': {
-            // STATE
-            if (node.kind == 'let') {
-
-              if (is_state(var_node.init)) {
-
-                if (var_node.init.arguments.length > 1) {
-                  throw '$state must have 1 argument'
-                }
-
-                const state = return_keys(var_node.id);
-
-                // const keys = [...state].join(',');
-
-                // print(code.slice(var_node.init.start, var_node.init.end))
-                const substring = code.slice(var_node.init.start, var_node.init.end);
-
-                code.replace(
-                  var_node.init,
-                  `${id}.set(${substring},[${[...state].map(s => `'${s}'`).join(',')}])`
-                )
-
-                state.forEach(s => { fn_node.state.add(s) })
-
-                // code.insert(node.end, `${id}.set(${substring})`)
-
-                continue;
-              }
-
-              if (is_hook(var_node.init)) {
-
-                code.insert(
-                  var_node.init.callee.end,
-                  `(${id})`
-                )
-
-                continue;
-              }
-
-            }
-          }
+    walk(node, {
+      Identifier(id_node) {
+        if (fn_node.state.has(id_node.name)) {
+          methods.add(caller);
         }
       }
-    },
+    })
 
-    Function(node) {
+  }
 
-      let state_match = new Set<string>();
+  if (fn_node.body.type != 'BlockStatement') return;
 
-      // esbuild rename shadowed Identifiers
+  for (const node of fn_node.body.body) {
 
-      // const params = new Set<string>();
+    switch (node.type) {
 
-      // for (const param of node.params) {
-      //   return_keys(param, params)
-      // }
+      case 'VariableDeclaration': {
 
-      // console.log(params)
+        for (const _node of node.declarations) {
 
-      walk(node.body, {
-        Identifier(id_node) {
-          if (/* !params.has(id_node.name) &&  */fn_node.state.has(id_node.name)) {
-            state_match.add(id_node.name);
-            code.insert(id_node.start, `${id}.$.${id_node.name} = `)
+          // print(_node.init.type)
+
+          switch (_node.init?.type) {
+
+            case 'CallExpression': {
+
+              // STATE
+
+              if (node.kind == 'let') {
+
+                if (is_state(_node.init)) {
+
+                  if (_node.init.arguments.length > 1) {
+                    throw '$state must have 1 argument'
+                  }
+
+                  const state = return_keys(_node.id);
+
+                  code.insert(_node.init.start, `${id}.set(`);
+                  code.insert(_node.init.end, `,[${[...state].map(s => `'${s}'`).join(',')}])`);
+
+                  state.forEach(s => { fn_node.state.add(s) })
+                  // code.insert(node.end, `${id}.set(${substring})`)
+                  break;
+                }
+
+              }
+              // END STATE
+
+              if (is_hook(_node.init)) {
+                code.insert(
+                  _node.init.callee.end,
+                  `(${id})`
+                )
+                break;
+              }
+              break;
+            }
+
+            case 'ArrowFunctionExpression':
+            case 'FunctionExpression': {
+
+              if (_node.id.type == 'Identifier') {
+                parse_method(_node.id.name, _node.init)
+              }
+
+              break;
+            }
           }
+
         }
-      })
+        break;
+      }
 
-      // const batch = `${id}.batch({ ${[...state_match].join(',')} })`;
+      case 'FunctionDeclaration': {
 
-      // if (node.body.type == 'BlockStatement') {
-      //   // console.log(node)
-      //   code.insert(node.body.end - 1, batch);
-      // } else {
-      //   code.insert(node.body.start, `(${batch},`);
-      //   code.insert(node.body.end, ')');
-      // }
+        parse_method(node.id.name, node);
+        break;
+      }
     }
-  })
+
+
+  }
+
+  // print(methods)
+
+  code.insert(fn_node.return_start, `${id}.methods = new Set([${[...methods].join(',')}]);\n`)
+
+  // code.insert(fn_node.return_start, `${id}.methods({ add, minus });\n`);
+  code.insert(fn_node.return_start, `${id}.batch = () => ({${[...fn_node.state].join(',')}});\n`);
+
+
+  // walk(fn_node.body, {
+  //   VariableDeclaration(node) {
+
+  //     for (const var_node of node.declarations) {
+  //       switch (var_node.init?.type) {
+  //         case 'CallExpression': {
+  //           // STATE
+  //           if (node.kind == 'let') {
+
+  //             if (is_state(var_node.init)) {
+
+  //               if (var_node.init.arguments.length > 1) {
+  //                 throw '$state must have 1 argument'
+  //               }
+
+  //               const state = return_keys(var_node.id);
+
+  //               // const keys = [...state].join(',');
+
+  //               // print(code.slice(var_node.init.start, var_node.init.end))
+  //               // const substring = code.slice(var_node.init.start, var_node.init.end);
+
+  //               // code.replace(
+  //               //   var_node.init,
+  //               //   `${id}.set(${substring},[${[...state].map(s => `'${s}'`).join(',')}])`
+  //               // )
+  //               code.insert(var_node.init.start, `${id}.set(`);
+  //               code.insert(var_node.init.end, `,[${[...state].map(s => `'${s}'`).join(',')}])`)
+
+  //               state.forEach(s => { fn_node.state.add(s) })
+
+  //               // code.insert(node.end, `${id}.set(${substring})`)
+
+  //               continue;
+  //             }
+
+  //             if (is_hook(var_node.init)) {
+
+  //               code.insert(
+  //                 var_node.init.callee.end,
+  //                 `(${id})`
+  //               )
+
+  //               continue;
+  //             }
+
+  //           }
+  //         }
+  //       }
+  //     }
+  //   },
+
+  //   Function(node) {
+
+  //     let state_match = new Set<string>();
+
+  //     // esbuild rename shadowed Identifiers
+
+  //     // const params = new Set<string>();
+  //     // for (const param of node.params) {
+  //     //   return_keys(param, params)
+  //     // }
+
+
+  //     walk(node.body, {
+
+  //       Identifier(id_node) {
+  //         if (/* !params.has(id_node.name) &&  */fn_node.state.has(id_node.name)) {
+  //           state_match.add(id_node.name);
+  //         }
+  //       }
+  //     });
+
+  //     if (state_match.size) {
+  //       console.log(state_match)
+  //       console.log(code.slice(node.start, node.end))
+
+  //       if (node.body.type == 'BlockStatement') {
+
+  //         console.log(node.id.name)
+  //       }
+  //     }
+
+  //   }
+  // })
+
+
+
 }
+
+
+
 
 
 function is_state(node: acorn.CallExpression) {
