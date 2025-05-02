@@ -25,12 +25,13 @@ export function parse_custom_element(node: FunctionNode, code: Code) {
   if (node.stateless) {
 
     // const replace = `(${component_id}.props(${_props_keys}), ${code.slice(node.body.start, node.body.end)})`
-    code.insert(node.body.start, `(${component_id}.props(${_props_keys}),`)
+    code.insert(node.body.start, `(${component_id}.props(${_props_keys}), ${component_id}.render = (h) =>`)
     code.insert(node.body.end, ')')
 
   } else {
     let index = code.find_index(node.body.start, "{");
     code.insert(index, `\n${component_id}.props(${_props_keys});\n`);
+    code.insert(node.jsx.start, `${component_id}.render = (h) =>`);
   }
 
   if (!node.stateless) {
@@ -48,7 +49,7 @@ export function parse_custom_element(node: FunctionNode, code: Code) {
   // code.replace(node.jsx.arguments[0], component_id)
 
   // code.insert(-1, `console.log(${node.component_id});\n`)
-  code.insert(-1, `${node.caller_id}({});\n`);
+  code.insert(-1, `${component_id}.register(${node.caller_id});\n`);
   // code.insert(-1, `${component_id}.register('${node.tag_name}');\n`)
 
   parse_jsx(node, code)

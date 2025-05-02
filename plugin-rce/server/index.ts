@@ -105,10 +105,10 @@ export class Code {
     this.sorted_push({ start: at, code });
   }
 
-  find_index(from: number, char: string) {
+  find_index(from: number, char: string, exact = false) {
     for (let i = from; i < this.source.length - 1; i++) {
       if (this.source[i] == char) {
-        return i + 1;
+        return i + (exact ? 0 : 1);
       }
     }
   }

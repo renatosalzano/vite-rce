@@ -1,6 +1,6 @@
 import * as acorn from "acorn";
 import { Expression, SpreadElement, ObjectExpression, AnyNode } from "acorn";
-import { simple } from 'acorn-walk';
+import { simple, ancestor, recursive } from 'acorn-walk';
 
 export interface FunctionNode extends acorn.Function {
   tag_name?: string;
@@ -67,9 +67,58 @@ function return_keys(node, output = new Set<string>()) {
   return output;
 }
 
+type AggregateType = {
+  Expression: acorn.Expression,
+  Statement: acorn.Statement,
+  Function: acorn.Function,
+  Class: acorn.Class,
+  Pattern: acorn.Pattern,
+  ForInit: acorn.VariableDeclaration | acorn.Expression
+}
+
+type Visitors = {
+  [type in acorn.AnyNode["type"]]?: (node: Extract<acorn.AnyNode, { type: type }>) => void
+} & {
+  [type in keyof AggregateType]?: (node: AggregateType[type]) => void
+}
+
+
+function walk(node: AnyNode, visitors: Visitors) {
+  if (!node || typeof node.type !== 'string') {
+    return; // Esci se il nodo non è valido
+  }
+
+  const type = node.type as (keyof Visitors);
+
+  // Chiama il visitatore specifico per il tipo di nodo, se esiste
+  if (visitors[type] && typeof visitors[type] === 'function') {
+    (visitors[type] as (node: AnyNode) => void)(node);
+  }
+
+  if (visitors.Function && typeof visitors.Function === 'function' &&
+    (node.type === 'FunctionDeclaration' || node.type === 'ArrowFunctionExpression' || node.type === 'FunctionExpression')) {
+    visitors.Function(node as FunctionNode);
+  }
+
+  // Continua la visita per i nodi figli (se presenti)
+  for (const key in node) {
+    if (node.hasOwnProperty(key) && typeof node[key] === 'object' && node[key] !== null) {
+      if (Array.isArray(node[key])) {
+        for (const childNode of node[key]) {
+          walk(childNode, visitors);
+        }
+      } else {
+        walk(node[key], visitors);
+      }
+    }
+  }
+}
+
 
 export {
   acorn,
   return_keys,
-  simple as walk
+  walk,
+  ancestor,
+  recursive
 }

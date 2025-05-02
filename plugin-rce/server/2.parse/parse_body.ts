@@ -1,4 +1,4 @@
-import { acorn, type FunctionNode, type FunctionBody, return_keys, walk } from "../acorn";
+import { acorn, type FunctionNode, type FunctionBody, return_keys, walk, recursive, ancestor, AnyNode } from "../acorn";
 import { Code } from "../";
 import { HOOK_START, STATE } from "../constant";
 
@@ -8,6 +8,7 @@ function parse_body(id: string, fn_node: FunctionNode, code: Code) {
 
   walk(fn_node.body, {
     VariableDeclaration(node) {
+
       for (const var_node of node.declarations) {
         switch (var_node.init?.type) {
           case 'CallExpression': {
@@ -57,18 +58,36 @@ function parse_body(id: string, fn_node: FunctionNode, code: Code) {
 
     Function(node) {
 
-      let state_match = new Set<string>()
+      let state_match = new Set<string>();
 
-      walk(node, {
+      // esbuild rename shadowed Identifiers
+
+      // const params = new Set<string>();
+
+      // for (const param of node.params) {
+      //   return_keys(param, params)
+      // }
+
+      // console.log(params)
+
+      walk(node.body, {
         Identifier(id_node) {
-
-          if (fn_node.state.has(id_node.name)) state_match.add(id_node.name)
+          if (/* !params.has(id_node.name) &&  */fn_node.state.has(id_node.name)) {
+            state_match.add(id_node.name);
+            code.insert(id_node.start, `${id}.$.${id_node.name} = `)
+          }
         }
       })
 
-      if (node.body.type == 'BlockStatement') {
-        code.insert(node.body.end - 1, `${id}.batch({ ${[...state_match].join(',')} });`)
-      }
+      // const batch = `${id}.batch({ ${[...state_match].join(',')} })`;
+
+      // if (node.body.type == 'BlockStatement') {
+      //   // console.log(node)
+      //   code.insert(node.body.end - 1, batch);
+      // } else {
+      //   code.insert(node.body.start, `(${batch},`);
+      //   code.insert(node.body.end, ')');
+      // }
     }
   })
 }
@@ -78,8 +97,10 @@ function is_state(node: acorn.CallExpression) {
   return node.callee.type == 'Identifier' && node.callee.name == STATE;
 }
 
+
 function is_hook(node: acorn.CallExpression) {
   return node.callee.type == 'Identifier' && node.callee.name.startsWith(HOOK_START);
 }
+
 
 export default parse_body;
