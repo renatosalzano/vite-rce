@@ -1,7 +1,7 @@
-import { Code } from "../";
+import { Code } from "..";
 import { FunctionNode } from "../acorn";
 import { print } from "../../utils/shortcode";
-import parse_body from "./parse_body";
+import parse_body from "./function_body";
 
 function parse_hook(node: FunctionNode, code: Code) {
   // code.replace(node, `function ${node.caller_id}(_c) {

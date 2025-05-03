@@ -1,9 +1,9 @@
 import { acorn, type FunctionNode, type FunctionBody, return_keys, walk, recursive, ancestor, AnyNode } from "../acorn";
-import { Code } from "../";
+import { Code } from "..";
 import { HOOK_START, STATE } from "../constant";
 import { print } from "../../utils/shortcode";
 
-function parse_body(id: string, fn_node: FunctionNode, code: Code) {
+function transform_body(id: string, fn_node: FunctionNode, code: Code) {
 
   fn_node.state = new Set<string>();
   const methods = new Set<string>();
@@ -206,4 +206,4 @@ function is_hook(node: acorn.CallExpression) {
 }
 
 
-export default parse_body;
+export default transform_body;

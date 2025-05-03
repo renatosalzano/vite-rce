@@ -1,11 +1,11 @@
 import { type FunctionNode, return_keys } from "../acorn";
-import { Code } from "../";
-import parse_body from "./parse_body";
-import { parse_jsx } from "./parse_jsx";
+import { Code } from "..";
+import transform_body from "./function_body";
+import transform_jsx from "./jsx";
 
 let component_id = '';
 
-export function parse_custom_element(node: FunctionNode, code: Code) {
+function transform_custom_element(node: FunctionNode, code: Code) {
 
   node.props = parse_props(node.params);
   // print(props_keys)
@@ -45,9 +45,9 @@ export function parse_custom_element(node: FunctionNode, code: Code) {
   // code.insert(-1, `console.log(${node.component_id});\n`)
   // code.insert(-1, `${component_id}.register('${node.tag_name}');\n`)
 
-  parse_body(component_id, node, code);
+  transform_body(component_id, node, code);
 
-  parse_jsx(node, code);
+  transform_jsx(node, code);
 
   code.insert(-1, `${component_id}.register(${node.caller_id});\n`);
 }
@@ -70,4 +70,4 @@ function parse_props(params) {
   return props_keys;
 }
 
-
+export default transform_custom_element;

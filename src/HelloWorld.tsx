@@ -1,5 +1,3 @@
-// import { $state } from "@rce"
-const stateSymbol = Symbol('state');
 import { $state } from 'rce'
 
 
@@ -43,6 +41,11 @@ function Component({ title = 'hello rce' }) {
     array.pop()
   }
 
+  function test(i: number) {
+
+    console.log(`u click the number ${i}`)
+  }
+
 
   const props = {}
 
@@ -53,6 +56,8 @@ function Component({ title = 'hello rce' }) {
       <strong>counter is {counter} {counter} {counter}</strong>
       <button onclick={add}>add</button>
       <button onclick={minus}>minus</button>
+
+      {counter > 0 ? (<p>if condition</p>) : null}
       {/* {counter > 1 && <div>
         <div>
           <div>
@@ -60,13 +65,20 @@ function Component({ title = 'hello rce' }) {
           </div>
         </div>
       </div>} */}
-      {array.map((ele) => (<p>{ele}</p>))}
+      {(array || []).map((ele) => (
+        <p onclick={() => test(ele)}>
+          {ele}
+          {ele == 5 && (
+            <strong>test if nested</strong>
+          )}
+        </p>
+      ))}
       {/* {counter > 0 ? (<span>counter is greater than 0</span>) : (<span>counter is 0</span>)} */}
     </my-component>
   )
 }
 
-/* 
+/*
 targets = [0]
 this.h({})
 
@@ -83,9 +95,9 @@ const add = _id.method(function add() {
 */
 
 
-const StatelessComponent = (props) => <custom-div>{props.hello && <span>hello</span>}</custom-div>;
+// const StatelessComponent = (props) => <custom-div>{props.hello && <span>hello</span>}</custom-div>;
 
-const Comp = function (props) { return <custom-span>{props.hello}</custom-span> }
+// const Comp = function (props) { return <custom-span>{props.hello}</custom-span> }
 
 
 

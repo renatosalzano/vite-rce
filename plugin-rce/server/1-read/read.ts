@@ -2,7 +2,7 @@ import { acorn, walk, type FunctionNode } from '../acorn';
 // import { walk } from 'zimmerframe';
 // import { Node } from 'estree';
 import { print } from '../../utils/shortcode';
-import { Code } from '../';
+import { Code } from '..';
 import { HOOK_START } from '../constant';
 
 
@@ -34,6 +34,7 @@ function read(id: string, code: Code) {
         read_function(node, code)
       }
     },
+
     VariableDeclaration(node) {
       for (const var_node of node.declarations) {
 

@@ -1,16 +1,16 @@
 import { $state } from "rce";
 
-
 interface Fragment extends DocumentFragment {
   target: HTMLElement;
   slot: HTMLSlotElement;
-  list_content: HTMLElement[];
+  placeholder: Comment;
+  list_content: (HTMLElement | Comment)[];
   content: HTMLElement;
   condition: boolean;
 }
 
 
-function createConfig<T extends object>(element_name: string) {
+function createConfig(element_name: string) {
 
 
   return new class {
@@ -87,6 +87,9 @@ function createConfig<T extends object>(element_name: string) {
       this.update();
     }
 
+    h_directive = () => {
+
+    }
 
     h = (tag: string, props: any, ...children: any[]) => {
 
@@ -112,6 +115,8 @@ function createConfig<T extends object>(element_name: string) {
               }
 
               case "directive": {
+
+                this.h_directive()
 
                 const fragment = element as Fragment;
 
@@ -156,22 +161,27 @@ function createConfig<T extends object>(element_name: string) {
                             fragment.list_content[i].replaceWith(elements[i]);
                             fragment.list_content[i] = elements[i];
                             last_element = elements[i];
-                            console.log('replace')
                           } else {
                             last_element = fragment.list_content[i];
-                            console.log('keep')
                           }
                         } else {
 
                           fragment.list_content[i] = elements[i]
                           last_element.after(elements[i])
                           last_element = elements[i];
-                          console.log('add')
                         }
 
                       } else {
-                        fragment.list_content[i].remove();
-                        fragment.list_content.pop();
+
+                        if (fragment.list_content.length == 1) {
+                          fragment.list_content[i].replaceWith(fragment.placeholder);
+                          fragment.list_content[i] = fragment.placeholder;
+                        } else {
+
+                          fragment.list_content[i].remove();
+                          fragment.list_content.pop();
+                        }
+
                       }
                     }
 
@@ -229,8 +239,8 @@ function createConfig<T extends object>(element_name: string) {
               this.caching_list = false;
 
               fragment.list_content = elements;
-              fragment.slot = document.createElement('slot');
-              fragment.target = elements[0] || fragment.slot;
+              fragment.placeholder = document.createComment('for');
+              fragment.target = elements[0] || fragment.placeholder;
 
               for (const element of elements) {
                 fragment.append(element);

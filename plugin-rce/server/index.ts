@@ -1,11 +1,11 @@
 import { transformWithEsbuild } from 'vite';
 import { writeFile } from 'fs/promises';
 import { extname, resolve } from 'path';
-import read from './1.read/read';
-import { parse_custom_element } from './2.parse/parse_custom_element.ts';
+import read from './1-read/read.ts';
+import transform_custom_element from './2-transform/custom_element.ts';
 import { print } from '../utils/shortcode';
 import { acorn } from './acorn.ts';
-import parse_hook from './2.parse/parse_hook.ts';
+import transform_hook from './2-transform/hook.ts';
 
 
 async function transform(id: string, source_code: string) {
@@ -26,6 +26,8 @@ async function transform(id: string, source_code: string) {
 
     const nodes = read(id, code);
 
+    // TRANSFORM CODE
+
     // TODO CHECK
     code.insert(0, "import { createConfig } from '/rce/client';\n");
 
@@ -34,11 +36,11 @@ async function transform(id: string, source_code: string) {
         case 'custom_element':
           print('parse;y', node.tag_name, node.caller_id)
 
-          parse_custom_element(node, code);
+          transform_custom_element(node, code);
           // code.insert(-1, `${node.component_id}.html(${node.caller_id}({}));\n`)
           break;
         case 'hook':
-          parse_hook(node, code)
+          transform_hook(node, code)
           break;
       }
     }
@@ -47,6 +49,7 @@ async function transform(id: string, source_code: string) {
 
     writeFile(resolve(__dirname, '../.local/build.js'), res, 'utf-8')
 
+    return source_code
     return res;
 
   } catch (err) {
@@ -56,6 +59,7 @@ async function transform(id: string, source_code: string) {
 }
 
 type CodeChange = { start: number, end?: number, code: string };
+
 
 export class Code {
 
@@ -141,6 +145,10 @@ export class Code {
 
   slice(start: number, end: number) {
     return this.source.slice(start, end);
+  }
+
+  node_string(node: acorn.AnyNode) {
+    return this.source.slice(node.start, node.end);
   }
 }
 
