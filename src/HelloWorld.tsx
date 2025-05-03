@@ -22,13 +22,21 @@ function Component({ title = 'hello rce' }) {
   // let { a: A, b, c: ALIAS } = $state({ a: 0, b: 1, c: 2 });
   // let [AAA, BBB] = $state(['a', 'b'])
   let array = $state([1, 2, 3])
+
+  let [bool] = $hook();
   // let [bool] = $hook()
 
   function add() {
 
     array.push(array.length + 1)
-    console.log(array)
+    // console.log(array)
     counter += 1;
+
+    console.log(counter)
+
+    bool = !bool;
+
+    console.log(bool)
 
     // function test() {
     //   counter;
@@ -57,7 +65,7 @@ function Component({ title = 'hello rce' }) {
       <button onclick={add}>add</button>
       <button onclick={minus}>minus</button>
 
-      {counter > 0 ? (<p>if condition</p>) : null}
+      {/* {counter > 0 ? (<p>if condition</p>) : null} */}
       {/* {counter > 1 && <div>
         <div>
           <div>
@@ -65,14 +73,14 @@ function Component({ title = 'hello rce' }) {
           </div>
         </div>
       </div>} */}
-      {(array || []).map((ele) => (
+      {/* {(array || []).map((ele) => (
         <p onclick={() => test(ele)}>
           {ele}
           {ele == 5 && (
             <strong>test if nested</strong>
           )}
         </p>
-      ))}
+      ))} */}
       {/* {counter > 0 ? (<span>counter is greater than 0</span>) : (<span>counter is 0</span>)} */}
     </my-component>
   )

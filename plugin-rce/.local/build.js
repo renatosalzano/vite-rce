@@ -1,6 +1,5 @@
-import { createConfig } from '/rce/client';
-let __my_component = createConfig('my-component');
-const stateSymbol = Symbol("state");
+import { createConfig, register } from '/rce/client';
+let __my_component;
 import { $state } from "rce";
 const $hook = (_c) => 
 function $hook() {
@@ -10,14 +9,16 @@ function $hook() {
 function Partial() {
 }
 function Component({ title = "hello rce" }) {
-__my_component.props(title);
-
+__my_component = createConfig('my-component', {title});
   let counter = __my_component.set($state(0),['counter']);
   let array = __my_component.set($state([1, 2, 3]),['array']);
+  let [bool] = $hook(__my_component)();
   function add() {
     array.push(array.length + 1);
-    console.log(array);
     counter += 1;
+    console.log(counter);
+    bool = !bool;
+    console.log(bool);
   }
   const minus = () => {
     counter -= 1;
@@ -29,9 +30,6 @@ __my_component.props(title);
   const props = {};
   __my_component.methods = new Set([add,minus]);
 __my_component.batch = () => ({counter,array});
-return /* @__PURE__ */ __my_component.render = (h) =>h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("strong", null, "counter is ", counter, " ", counter, " ", counter), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus"), 
-h('$ternary',counter > 0,()=>counter > 0 ? /* @__PURE__ */ h("p", null, "if condition") : null), 
-h('$for',array || [],()=>(array || []).map((ele) => /* @__PURE__ */ h("p", { onclick: () => test(ele) }, ele, 
-h('$if',ele == 5,()=>ele == 5 && /* @__PURE__ */ h("strong", null, "test if nested"))))));
+return /* @__PURE__ */ (__my_component.render = (h) =>h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("strong", null, "counter is ", counter, " ", counter, " ", counter), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus")),__my_component);;
 }
-__my_component.register(Component);
+register('my-component', Component);

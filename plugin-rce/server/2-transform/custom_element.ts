@@ -17,7 +17,7 @@ function transform_custom_element(node: FunctionNode, code: Code) {
 
   code.insert(
     0,
-    `let ${component_id} = createConfig('${node.tag_name}');\n`
+    `let ${component_id};\n`
   )
 
   if (node.stateless) {
@@ -28,8 +28,10 @@ function transform_custom_element(node: FunctionNode, code: Code) {
 
   } else {
     let index = code.find_index(node.body.start, "{");
-    code.insert(index, `\n${component_id}.props(${_props_keys});\n`);
-    code.insert(node.jsx.start, `${component_id}.render = (h) =>`);
+    code.insert(index, `\n${component_id} = createConfig('${node.tag_name}', {${_props_keys}});`);
+    // code.insert(index, `\n${component_id}.props(${_props_keys});`);
+    code.insert(node.jsx.start, `(${component_id}.render = (h) =>`);
+    code.insert(node.jsx.end, `,${component_id});`)
   }
 
   node.return_deps = (code: string) => {
@@ -49,7 +51,7 @@ function transform_custom_element(node: FunctionNode, code: Code) {
 
   transform_jsx(node, code);
 
-  code.insert(-1, `${component_id}.register(${node.caller_id});\n`);
+  code.insert(-1, `register('${node.tag_name}', ${node.caller_id});\n`);
 }
 
 function parse_props(params) {

@@ -1,11 +1,11 @@
 import { transformWithEsbuild } from 'vite';
 import { writeFile } from 'fs/promises';
 import { extname, resolve } from 'path';
+import { acorn } from './acorn.ts';
 import read from './1-read/read.ts';
 import transform_custom_element from './2-transform/custom_element.ts';
-import { print } from '../utils/shortcode';
-import { acorn } from './acorn.ts';
 import transform_hook from './2-transform/hook.ts';
+import { print } from '../utils/shortcode';
 
 
 async function transform(id: string, source_code: string) {
@@ -29,7 +29,7 @@ async function transform(id: string, source_code: string) {
     // TRANSFORM CODE
 
     // TODO CHECK
-    code.insert(0, "import { createConfig } from '/rce/client';\n");
+    code.insert(0, "import { createConfig, register } from '/rce/client';\n");
 
     for (const node of nodes) {
       switch (node.type) {
@@ -49,7 +49,7 @@ async function transform(id: string, source_code: string) {
 
     writeFile(resolve(__dirname, '../.local/build.js'), res, 'utf-8')
 
-    return source_code
+    // return source_code
     return res;
 
   } catch (err) {

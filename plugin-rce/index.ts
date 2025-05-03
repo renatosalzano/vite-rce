@@ -111,6 +111,8 @@ function viteRCE(): Plugin {
     // 1.
     resolveId(id, importer) {
 
+      // print(id, importer
+
       if (id == 'rce') {
         return { id: '/rce/client' }
       }
@@ -121,7 +123,6 @@ function viteRCE(): Plugin {
 
       if (importer == '/rce/client') {
         id = join('/rce/client', id + '.ts');
-
         return { id };
       }
     },

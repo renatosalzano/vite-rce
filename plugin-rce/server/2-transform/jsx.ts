@@ -75,7 +75,7 @@ function transform_factory(node: acorn.AnyNode) {
       } else if (is_map(node)) {
         // print(node)
         const condition = code.node_string((node.callee as acorn.MemberExpression).object);
-        code.insert(node.start, `\nh('$for',${condition},()=>`);
+        code.insert(node.start, `\nh('$for',${condition},(h)=>`);
         code.insert(node.end, ')');
 
         print((node.arguments[0] as acorn.Function).body)
@@ -89,14 +89,14 @@ function transform_factory(node: acorn.AnyNode) {
       // print(node.operator)
 
       const condition = code.node_string(node.left);
-      code.insert(node.start, `\nh('$if',${condition},()=>`);
+      code.insert(node.start, `\nh('$if',${condition},(h)=>`);
       code.insert(node.end, ')');
       break;
 
     case 'ConditionalExpression': {
       const condition = code.node_string(node.test);
 
-      code.insert(node.start, `\nh('$ternary',${condition},()=>`);
+      code.insert(node.start, `\nh('$ternary',${condition},(h)=>`);
       code.insert(node.end, ')');
       break;
     }
