@@ -16,7 +16,7 @@ function Partial() {
 }
 
 
-function Component({ title = 'hello rce' }) {
+const Component = ({ title = 'hello rce' }) => {
 
   let counter = $state(0);
   let other_counter = $state(0);
@@ -103,7 +103,7 @@ const add = _id.method(function add() {
 */
 
 
-// const StatelessComponent = (props) => <custom-div>{props.hello && <span>hello</span>}</custom-div>;
+const StatelessComponent = (props) => <custom-div>{props.hello && <span>hello</span>}</custom-div>;
 
 // const Comp = function (props) { return <custom-span>{props.hello}</custom-span> }
 

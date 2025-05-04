@@ -21,40 +21,6 @@ function transform_jsx(_node: FunctionNode, _code: Code) {
     transform_factory(child)
   }
 
-  // print(children)
-
-  // print(code.slice(node.jsx.start, node.jsx.end))
-
-  // walk(node.jsx, {
-
-  //   CallExpression(node) {
-
-  //     if (is_map(node)) {
-
-  //       const condition = code.node_string((node.callee as acorn.MemberExpression).object);
-
-  //       code.insert(node.start, `\nh('$for',${condition},()=>`);
-  //       code.insert(node.end, ')');
-
-  //     }
-  //   },
-
-  //   LogicalExpression(node) {
-
-  //     const condition = code.node_string(node.left);
-
-  //     code.insert(node.start, `\nh('$if',${condition},()=>`);
-  //     code.insert(node.end, ')');
-
-  //   },
-
-  //   ConditionalExpression(node) {
-  //     const condition = code.node_string(node.test);
-
-  //     code.insert(node.start, `\nh('$ternary',${condition},()=>`);
-  //     code.insert(node.end, ')');
-  //   }
-  // })
 }
 
 

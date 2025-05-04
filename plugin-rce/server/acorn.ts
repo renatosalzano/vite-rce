@@ -12,6 +12,7 @@ export interface FunctionNode extends acorn.Function {
   return_start?: number;
   jsx?: FactoryNode;
   props?: Set<string>;
+  props_type?: 'ObjectPattern' | 'Identifier';
   state?: Set<string>;
   return_deps?: (code: string) => string[]
 }

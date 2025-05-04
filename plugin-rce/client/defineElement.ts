@@ -1,7 +1,7 @@
 import { Config } from "./createConfig";
 import { $state } from "rce";
 
-function register(element_name: string, component: (props: any) => Config) {
+function defineElement(name: string, component: (props: any) => Config) {
 
   const instances = new WeakMap<HTMLElement, {
     config: Config,
@@ -10,7 +10,7 @@ function register(element_name: string, component: (props: any) => Config) {
 
 
   window.customElements.define(
-    element_name,
+    name,
     class extends HTMLElement {
 
       constructor() {
@@ -304,4 +304,4 @@ class Mutations {
   }
 }
 
-export default register;
+export default defineElement;

@@ -1,5 +1,6 @@
-import { createConfig, register } from '/rce/client';
+import { createConfig, defineElement } from '/rce/client';
 let __my_component;
+let __custom_div;
 import { $state } from "rce";
 const $hook = (_c) => 
 function $hook() {
@@ -8,7 +9,7 @@ function $hook() {
 }
 function Partial() {
 }
-function Component({ title = "hello rce" }) {
+function Component({ title = "hello rce" }){
 __my_component = createConfig('my-component', {title});
   let counter = __my_component.set($state(0));
   let other_counter = __my_component.set($state(0));
@@ -33,6 +34,11 @@ __my_component = createConfig('my-component', {title});
   __my_component.methods = new Set([add,minus,plus]);
 __my_component.batch = () => ({counter,other_counter,array});
 return /* @__PURE__ */ (__my_component.render = (h) =>h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("strong", { class: "porco dio" }, "counter is ", counter, " ", counter, " ", counter), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus"), /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("button", { onclick: plus }, "plus")), 
-h('$if',counter > 0,(h)=>counter > 0 && /* @__PURE__ */ h("div", null, "if condition ", /* @__PURE__ */ h("div", null, "counter is ", other_counter)))),__my_component);;
-}
-register('my-component', Component);
+h('$if',counter > 0,(h)=>counter > 0 && /* @__PURE__ */ h("div", null, "if condition ", /* @__PURE__ */ h("div", null, "counter is ", other_counter)))),__my_component);
+};
+function StatelessComponent(props) {
+__custom_div = createConfig('custom-div', props);
+return (__custom_div.render = (h) =>h("custom-div", null, 
+h('$if',props.hello,(h)=>props.hello && /* @__PURE__ */ h("span", null, "hello"))),__custom_div)};
+defineElement('my-component', Component);
+defineElement('custom-div', StatelessComponent);

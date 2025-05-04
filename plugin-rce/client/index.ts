@@ -1,9 +1,9 @@
 import createConfig from "./createConfig";
-import register from './register';
+import defineElement from './defineElement';
 import { $state } from "./hooks";
 
 export {
-  register,
+  defineElement,
   createConfig,
   $state
 }

@@ -28,8 +28,9 @@ async function transform(id: string, source_code: string) {
 
     // TRANSFORM CODE
 
-    // TODO CHECK
-    code.insert(0, "import { createConfig, register } from '/rce/client';\n");
+
+    code.insert(0, "import { createConfig, defineElement } from '/rce/client';\n");
+
 
     for (const node of nodes) {
       switch (node.type) {
@@ -49,7 +50,7 @@ async function transform(id: string, source_code: string) {
 
     writeFile(resolve(__dirname, '../.local/build.js'), res, 'utf-8')
 
-    // return source_code
+    return source_code
     return res;
 
   } catch (err) {

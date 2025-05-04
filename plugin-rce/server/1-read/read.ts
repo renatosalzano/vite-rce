@@ -67,6 +67,7 @@ function read(id: string, code: Code) {
                 fn_node.start = node.start;
                 fn_node.end = node.end;
                 fn_node.stateless = true;
+                fn_node.arrow = true;
                 fn_node.type = 'custom_element';
                 fn_node.jsx = var_node.init.body;
                 // print(var_node.id)
@@ -85,6 +86,8 @@ function read(id: string, code: Code) {
 
             const fn_node = var_node.init as any;
             fn_node.id = var_node.id;
+            fn_node.arrow = true;
+            fn_node.start = node.start;
 
             read_function(fn_node, code);
         }
