@@ -21,6 +21,8 @@ function register(element_name: string, component: (props: any) => Config) {
 
         template.init();
 
+        console.log(template)
+
         instances.set(this, { config, template });
 
       }
@@ -43,6 +45,10 @@ function register(element_name: string, component: (props: any) => Config) {
         // append(this, html as any);
 
       }
+
+      setProps(props: { [key: string]: any }): void {
+
+      }
     }
   )
 }
@@ -61,6 +67,7 @@ class Template {
   index = 0;
 
   cached = new Map<number, (HTMLElement | Fragment)>();
+  element_checked = new Set<number>();
 
   constructor(config: Config) {
     this.config = config;
@@ -78,12 +85,23 @@ class Template {
       case "$ternary":
       case "$for":
         // console.log(tag, props, children)
-        this.cache(new Fragment(this.config, tag, props, children[0]))
+        this.cache(new Fragment(this.config, tag, props as any, children[0]))
         return;
     }
 
-    // MUTATIONS
+    this.check_mutations(props, children);
+    this.index++;
+  }
 
+  check_mutations(props: AnyObject, children: any[]) {
+
+    for (const attr_name in props) {
+      if (attr_name.startsWith('on')) return;
+      const attr_value = props[attr_name];
+      console.log(attr_name, attr_value)
+    }
+
+    // TEXT NODE
     let node_index = 0;
     for (const child of children) {
 
@@ -94,7 +112,7 @@ class Template {
       node_index++;
     }
 
-    this.index++;
+    this.element_checked.add(this.index)
 
   }
 
@@ -114,12 +132,20 @@ class Template {
       const element = this.cached.get(this.index);
 
       if (element instanceof Fragment) {
-        return;
+        // console.log(props)
+        const fragment = element.element(props as any);
+        this.index++;
+
+        return fragment;
+      }
+
+      if (!this.element_checked.has(this.index)) {
+        this.check_mutations(props, children);
       }
 
       if (this.mutations.has(this.index)) {
 
-        console.log(element, 'has mutations', children)
+        // console.log(element, 'has mutations', children)
 
         for (const mutation of this.mutations.get(this.index)) {
 
@@ -134,16 +160,16 @@ class Template {
 
         }
 
-
-
       }
 
       this.index++;
 
+      return element;
+
     } else {
       // CREATE ELEMENT
 
-      console.log('create', tag, this)
+      // console.log('create', tag)
       const element = document.createElement(tag);
 
       for (const [name, value] of Object.entries(props ?? {})) {
@@ -151,7 +177,7 @@ class Template {
         if (name.startsWith('on') && typeof value == 'function') {
 
           if (this.config.methods.has(value)) {
-            element[name] = (event: any) => { value(event); this.config.render(this.h); this.index = 0; };
+            element[name] = (event: any) => { value(event); this.rerender(); };
           } else {
             element[name] = value;
           }
@@ -181,6 +207,11 @@ class Template {
 
   }
 
+  rerender = () => {
+    this.config.render(this.h);
+    this.index = 0;
+  }
+
 }
 
 type FragmentTypes = '$if' | '$ternary' | '$for';
@@ -188,19 +219,50 @@ type FragmentTypes = '$if' | '$ternary' | '$for';
 class Fragment extends Template {
 
   type: FragmentTypes;
-  condition: any;
+  target: HTMLElement | Comment;
+
+  condition: boolean;
+  placeholder: Comment;
   render: (h: Function) => any;
 
-  constructor(config: Config, type: FragmentTypes, condition: any, render: (h: Function) => any) {
+  constructor(config: Config, type: FragmentTypes, condition: boolean, render: (h: Function) => any) {
     super(config);
     this.type = type;
-    this.condition = condition;
     this.render = render;
+
+    this.placeholder = document.createComment(type);
+    this.target = this.placeholder;
+    this.condition = condition;
 
     this.render(this._init);
     this.index = 0;
+
   }
 
+  element = (condition: boolean) => {
+
+    const node: HTMLElement | Comment = this.render(this.h) || this.placeholder;
+    this.index = 0;
+
+    switch (this.type) {
+      case "$if":
+      case "$ternary": {
+        if (this.condition != condition) {
+          this.condition = condition;
+
+          this.target.replaceWith(node);
+          this.target = node;
+        }
+
+        console.log(this.cached)
+        break;
+      }
+      case "$for":
+    }
+
+
+    return this.target;
+  }
 
 
   // h = (type: string, condition: any, elements: Function) => { }
@@ -217,15 +279,6 @@ type MutationList = (
   | {
     type: 'attribute';
     node_index: number;
-  }
-  | {
-    type: 'method';
-    event_name: string;
-    method: Function;
-  }
-  | {
-    type: 'directive';
-    operator: 'if' | 'for' | 'ternary';
   }
 )[]
 

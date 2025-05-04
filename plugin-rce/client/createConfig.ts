@@ -1,27 +1,7 @@
 import { $state } from "rce";
 
-// interface Fragment extends DocumentFragment {
-//   target: HTMLElement;
-//   slot: HTMLSlotElement;
-//   placeholder: Comment;
-//   list_content: (HTMLElement | Comment)[];
-//   content: HTMLElement;
-//   condition: boolean;
-// }
-
-
-// export interface Config {
-//   element_name: string;
-//   methods: Set<Function>;
-//   render: (h: Function) => HTMLElement[];
-// }
-
 
 function createConfig(element_name: string, props: { [key: string]: any }) {
-
-  // const instances = new WeakMap<HTMLElement, { template?: Template, state: any[] }>();
-
-  // let curr_instance: any;
 
 
   const config = {
@@ -29,46 +9,6 @@ function createConfig(element_name: string, props: { [key: string]: any }) {
     props,
     element_name,
     state: [],
-
-    // register(component: Function) {
-
-    //   window.customElements.define(
-    //     element_name,
-    //     class extends HTMLElement {
-
-    //       constructor() {
-    //         super();
-
-    //         instances.set(this, { state: [] });
-
-    //         curr_instance = instances.get(this);
-
-    //         component({});
-
-    //         curr_instance.template = new Template(config);
-    //         curr_instance.template.init();
-
-    //         console.log(instances)
-    //       }
-
-    //       connectedCallback() {
-    //         console.log('mounted');
-    //         instances.get(this).template.append(this);
-    //         // template.append(this);
-    //         // const html = self.render(self.h);
-    //         // console.log(self.elements);
-    //         // console.log(self.element_list)
-    //         // self.is_mounted = true;
-
-
-    //         // // console.log(html)
-
-    //         // append(this, html as any);
-
-    //       }
-    //     }
-    //   )
-    // },
 
     set(value: any, deps: string[]) {
 

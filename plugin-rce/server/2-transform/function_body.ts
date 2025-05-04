@@ -49,7 +49,8 @@ function transform_body(id: string, fn_node: FunctionNode, code: Code) {
                   const state = return_keys(_node.id);
 
                   code.insert(_node.init.start, `${id}.set(`);
-                  code.insert(_node.init.end, `,[${[...state].map(s => `'${s}'`).join(',')}])`);
+                  // code.insert(_node.init.end, `,[${[...state].map(s => `'${s}'`).join(',')}])`);
+                  code.insert(_node.init.end, `)`);
 
                   state.forEach(s => { fn_node.state.add(s) })
                   // code.insert(node.end, `${id}.set(${substring})`)

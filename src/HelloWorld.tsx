@@ -19,6 +19,7 @@ function Partial() {
 function Component({ title = 'hello rce' }) {
 
   let counter = $state(0);
+  let other_counter = $state(0);
   // let { a: A, b, c: ALIAS } = $state({ a: 0, b: 1, c: 2 });
   // let [AAA, BBB] = $state(['a', 'b'])
   let array = $state([1, 2, 3])
@@ -32,11 +33,11 @@ function Component({ title = 'hello rce' }) {
     // console.log(array)
     counter += 1;
 
-    console.log(counter)
+    // console.log(counter)
 
     bool = !bool;
 
-    console.log(bool)
+    // console.log(bool)
 
     // function test() {
     //   counter;
@@ -54,6 +55,10 @@ function Component({ title = 'hello rce' }) {
     console.log(`u click the number ${i}`)
   }
 
+  function plus() {
+    other_counter += 1;
+  }
+
 
   const props = {}
 
@@ -61,18 +66,13 @@ function Component({ title = 'hello rce' }) {
     <my-component>
       <h2>my component</h2>
       {/* <span {...props}>{counter}</span> */}
-      <strong>counter is {counter} {counter} {counter}</strong>
+      <strong class={'porco dio'}>counter is {counter} {counter} {counter}</strong>
       <button onclick={add}>add</button>
       <button onclick={minus}>minus</button>
-
-      {/* {counter > 0 ? (<p>if condition</p>) : null} */}
-      {/* {counter > 1 && <div>
-        <div>
-          <div>
-            if
-          </div>
-        </div>
-      </div>} */}
+      <div>
+        <button onclick={plus}>plus</button>
+      </div>
+      {counter > 0 && (<div>if condition <div>counter is {other_counter}</div></div>)}
       {/* {(array || []).map((ele) => (
         <p onclick={() => test(ele)}>
           {ele}

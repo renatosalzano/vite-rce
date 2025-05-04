@@ -10,10 +10,14 @@
 
 <body>
   <my-component></my-component>
-  <my-component></my-component>
-  <my-component></my-component>
+  <!-- <my-component></my-component>
+  <my-component></my-component> -->
   <script type="module" src="/src/index.js"></script>
-  <p hidden>porco dio</p>
+  <script>
+    const test = document.querySelector('my-component');
+    console.log(test);
+    test.setProps()
+  </script>
 </body>
 
 </html>

@@ -23,8 +23,8 @@ function transform_custom_element(node: FunctionNode, code: Code) {
   if (node.stateless) {
 
     // const replace = `(${component_id}.props(${_props_keys}), ${code.slice(node.body.start, node.body.end)})`
-    code.insert(node.body.start, `(${component_id}.props(${_props_keys}), ${component_id}.render = (h) =>`)
-    code.insert(node.body.end, ')')
+    code.insert(node.body.start, `(${component_id} = createConfig('${node.tag_name}', {${_props_keys}}), ${component_id}.render = (h) =>`)
+    code.insert(node.body.end, `,${component_id});`)
 
   } else {
     let index = code.find_index(node.body.start, "{");
