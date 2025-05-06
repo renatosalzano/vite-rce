@@ -1,6 +1,6 @@
 import { transformWithEsbuild } from 'vite';
 import { writeFile } from 'fs/promises';
-import { extname, resolve } from 'path';
+import { basename, extname, parse, resolve } from 'path';
 import { acorn } from './acorn.ts';
 import read from './1-read/read.ts';
 import transform_custom_element from './2-transform/custom_element.ts';
@@ -48,7 +48,7 @@ async function transform(id: string, source_code: string) {
 
     const res = code.commit();
 
-    writeFile(resolve(__dirname, '../.local/build.js'), res, 'utf-8')
+    writeFile(resolve(__dirname, `../.local/${parse(id).name}.js`), res, 'utf-8')
 
     // return source_code
     return res;
@@ -68,7 +68,8 @@ export class Code {
 
   constructor(
     public source: string,
-  ) { }
+  ) {
+  }
 
   private sorted_push(change: CodeChange) {
 

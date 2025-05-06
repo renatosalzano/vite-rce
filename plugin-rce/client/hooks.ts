@@ -1,18 +1,11 @@
-const SYMBOLS = {
-  STATE: Symbol('state')
-}
 
-function $state<T>(init: T) {
 
-  Object.assign(init.constructor, { $$type: SYMBOLS.STATE })
+function $state<T>(init: T): T {
+
+  // const config = ($state as any).current;
 
   return init;
 }
-
-$state.isState = <T>(value: T) => {
-  return value?.constructor && value.constructor?.['$$type'] === SYMBOLS.STATE;
-}
-
 
 export {
   $state

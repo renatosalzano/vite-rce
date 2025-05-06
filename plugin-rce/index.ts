@@ -9,8 +9,11 @@ import {
 import transform from "./server";
 import { print } from "./utils/shortcode";
 
+type Config = {
+  components: { [key: string]: Function }
+}
 
-function viteRCE(): Plugin {
+function viteRCE(config: Config): Plugin {
 
   const src = 'src';
 
@@ -49,13 +52,20 @@ function viteRCE(): Plugin {
             paths: [`${src}/**/*`, 'plugin-rce/client/**/*'],
             ignored: ['node_modules/**']
           }
-        }
+        },
+        // resolve: {
+        //   alias: {
+        //     'rce': resolve(__dirname, './client/index.ts')
+        //   }
+        // }
       }
     },
 
     configResolved(config) {
       src_dir = join(config.root, src_dir);
       command = config.command;
+
+      print(command)
     },
 
     // vite dev server
@@ -92,6 +102,10 @@ function viteRCE(): Plugin {
         if (file.isFile()) {
           // const path = resolve(file.path, file.name)
           // console.log(file);
+
+          if (command == 'build') {
+            console.log(file.name)
+          }
 
           if (dev_server) {
 
@@ -163,7 +177,7 @@ function viteRCE(): Plugin {
     },
 
     transformIndexHtml: {
-      handler(html) {
+      handler() {
 
         return [
           {

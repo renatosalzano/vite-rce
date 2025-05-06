@@ -1,23 +1,20 @@
 import { type FunctionNode, return_keys } from "../acorn";
-import { Code } from "..";
+import { CONFIG_ID } from "../constant";
 import transform_body from "./function_body";
 import transform_jsx from "./jsx";
-
-let component_id = '';
+import { Code } from "..";
 
 function transform_custom_element(node: FunctionNode, code: Code) {
 
   parse_props(node);
   // print(props_keys)
-
-  component_id = node.component_id;
   // print(code.slice(node.start, node.body.start))
 
   console.log(node.props)
 
   const props = [...node.props].join(',');
 
-  code.insert(0, `let ${component_id};\n`);
+  // code.insert(0, `let ${config_ID};\n`);
 
   if (node.arrow) {
 
@@ -35,20 +32,20 @@ function transform_custom_element(node: FunctionNode, code: Code) {
   }
 
   const config_props = node.props_type == 'ObjectPattern' ? `{${props}}` : props;
-  const create_config = `\n${component_id} = createConfig('${node.tag_name}', ${config_props});`;
+  const create_config = `\nconst ${CONFIG_ID} = createConfig('${node.tag_name}', ${config_props});`;
 
   if (node.stateless) {
 
     // const replace = `(${component_id}.props(${_props_keys}), ${code.slice(node.body.start, node.body.end)})`
     code.insert(node.body.start, create_config)
-    code.insert(node.jsx.start, `\nreturn (${component_id}.render = (h) =>`);
-    code.insert(node.body.end, `,${component_id})}`)
+    code.insert(node.jsx.start, `\nreturn (${CONFIG_ID}.render = (h) =>`);
+    code.insert(node.body.end, `,${CONFIG_ID})}`)
 
   } else {
     let index = code.find_index(node.body.start, "{");
     code.insert(index, create_config);
-    code.insert(node.jsx.start, `(${component_id}.render = (h) =>`);
-    code.insert(node.jsx.end, `,${component_id})`)
+    code.insert(node.jsx.start, `(${CONFIG_ID}.render = (h) =>`);
+    code.insert(node.jsx.end, `,${CONFIG_ID})`)
   }
 
   // node.return_deps = (code: string) => {
@@ -64,7 +61,7 @@ function transform_custom_element(node: FunctionNode, code: Code) {
   // code.insert(-1, `console.log(${node.component_id});\n`)
   // code.insert(-1, `${component_id}.register('${node.tag_name}');\n`)
 
-  transform_body(component_id, node, code);
+  transform_body(node, code);
 
   transform_jsx(node, code);
 
@@ -78,17 +75,21 @@ function parse_props(node: FunctionNode) {
     throw 'props must be 1 argument'
   }
 
-  const props_node = node.params[0];
-  const props_keys = new Set<string>();
+  node.props = new Set<string>();
 
-  if (props_node.type == 'Identifier' || props_node.type == 'ObjectPattern') {
-    node.props_type = props_node.type;
-    return_keys(props_node, props_keys);
-  } else {
-    // throw error
+  const props_node = node.params[0];
+
+  if (props_node) {
+
+    if (props_node.type == 'Identifier' || props_node.type == 'ObjectPattern') {
+      node.props_type = props_node.type;
+      return_keys(props_node, node.props);
+    } else {
+      // throw error
+    }
+
   }
 
-  node.props = props_keys;
 }
 
 export default transform_custom_element;

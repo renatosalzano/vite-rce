@@ -1,5 +1,4 @@
 import { Config } from "./createConfig";
-import { $state } from "rce";
 
 function defineElement(name: string, component: (props: any) => Config) {
 
@@ -8,6 +7,7 @@ function defineElement(name: string, component: (props: any) => Config) {
     template: Template,
   }>();
 
+  console.log('define', name)
 
   window.customElements.define(
     name,
@@ -17,6 +17,9 @@ function defineElement(name: string, component: (props: any) => Config) {
         super();
 
         const config = component({});
+
+        console.log(config)
+
         const template = new Template(config);
 
         template.init();
@@ -56,8 +59,6 @@ type AnyObject = {
   [key: string]: any;
 }
 
-
-
 class Template {
 
   // mutations = new Mutations();
@@ -94,6 +95,7 @@ class Template {
     }
 
     this.check_mutations(props, children);
+    this.cache.next();
   }
 
   check_mutations(props: AnyObject, children: any[]) {
@@ -108,7 +110,7 @@ class Template {
     let node_index = 0;
     for (const child of children) {
 
-      if ($state.isState(child)) {
+      if (this.config.is_state(child)) {
         this.cache.mutation({ type: 'text_node', node_index });
       }
 
@@ -289,7 +291,6 @@ class ListTemplate extends Template {
 
     const item = array[0];
 
-
     this.cache.start();
     this.render(this.init_cache, item, 0, array);
 
@@ -299,10 +300,12 @@ class ListTemplate extends Template {
 
   element = (array: any[]) => {
 
+    array.forEach(i => console.log(i))
+
     const fragment = document.createDocumentFragment();
 
     const max_index = Math.max(array.length, this.node_list.size);
-    let last_element: HTMLElement | Comment = this.placeholder;
+    let last_element: HTMLElement | Comment = this.node_list.get(0);
 
     this.cache.start_list();
 
@@ -323,6 +326,7 @@ class ListTemplate extends Template {
             // replace element
             dom_element.replaceWith(element);
             this.node_list.set(index, element);
+
             last_element = element;
           } else {
             // keep element
@@ -463,7 +467,6 @@ class Cache {
 
   mutations_is_checked = () => {
     this.mutations_checked.add(this.index);
-    this.next();
   }
 
   mutations_not_checked = () => {
@@ -483,6 +486,8 @@ class Cache {
   }
 
   apply_mutation = (element: HTMLElement, props: AnyObject, child_nodes: any[]) => {
+
+    console.log('apply_mutation', element, this.mutations.get(this.index))
 
     // console.log('apply mutation', element)
     for (const mutation of this.mutations.get(this.index)) {

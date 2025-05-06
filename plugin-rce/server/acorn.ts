@@ -5,7 +5,7 @@ import { simple, ancestor, recursive } from 'acorn-walk';
 export interface FunctionNode extends acorn.Function {
   tag_name?: string;
   caller_id?: string;
-  component_id?: string;
+  config_ID?: string;
   type: 'FunctionDeclaration' | 'custom_element' | 'partial' | 'hook'
   stateless?: boolean;
   arrow?: boolean;
@@ -13,7 +13,8 @@ export interface FunctionNode extends acorn.Function {
   jsx?: FactoryNode;
   props?: Set<string>;
   props_type?: 'ObjectPattern' | 'Identifier';
-  state?: Set<string>;
+  state?: string[];
+  hook_var?: Set<string>;
   return_deps?: (code: string) => string[]
 }
 

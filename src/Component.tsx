@@ -4,7 +4,15 @@ import { $state } from 'rce'
 function $hook() {
   let bool = $state(false);
 
-  return [bool]
+  function method() {
+    console.log('working method')
+    bool = !bool
+  }
+
+  return {
+    bool,
+    method
+  }
 
   // return (instance) => {
   // }
@@ -16,26 +24,32 @@ function Partial() {
 }
 
 
-const Component = ({ title = 'hello rce' }) => {
+export const Component = ({ title = 'hello rce' }) => {
 
   let counter = $state(0);
   let other_counter = $state(0);
+  let date = $state(new Date());
+  let und = $state(undefined);
   // let { a: A, b, c: ALIAS } = $state({ a: 0, b: 1, c: 2 });
   // let [AAA, BBB] = $state(['a', 'b'])
   let array = $state([1, 2, 3])
 
-  let [bool] = $hook();
+  let { bool, method } = $hook();
   // let [bool] = $hook()
 
   function add() {
 
+    method()
+
     array.push(array.length + 1)
-    // console.log(array)
     counter += 1;
 
+    console.log('from component', counter)
     // console.log(counter)
 
     bool = !bool;
+
+    const test = 0;
 
     // console.log(bool)
 
@@ -71,15 +85,15 @@ const Component = ({ title = 'hello rce' }) => {
       <button onclick={minus}>minus</button>
       <div>
         <button onclick={plus}>plus</button>
+        <div>
+          other counter is {other_counter}
+        </div>
       </div>
       {/* {counter > 0 && (<div>if condition <div>counter is {other_counter}</div></div>)} */}
-      {(array || []).map((i, _index, _arr) => (
-        <p onclick={() => test(i)}>
-          <span>item {i}</span>
-          {i == 2 && (
-            <strong>test if nested</strong>
-          )}
-        </p>
+      {(array || []).map((parent_index, _index, _arr) => (
+        <div>
+          item - {parent_index}
+        </div>
       ))}
       {/* {counter > 0 ? (<span>counter is greater than 0</span>) : (<span>counter is 0</span>)} */}
     </my-component>

@@ -27,5 +27,5 @@
     }
   },
   "include": [ "src", "plugin-rce" ],
-  "exclude": [ "plugin-rce/.local/**/*" ]
+  "exclude": [ "plugin-rce/.local/**/*", "node_modules/**/*" ]
 }

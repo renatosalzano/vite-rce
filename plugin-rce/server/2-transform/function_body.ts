@@ -1,18 +1,20 @@
 import { acorn, type FunctionNode, type FunctionBody, return_keys, walk, recursive, ancestor, AnyNode } from "../acorn";
 import { Code } from "..";
-import { HOOK_START, STATE } from "../constant";
+import { HOOK_START, STATE, CONFIG_ID } from "../constant";
 import { print } from "../../utils/shortcode";
 
-function transform_body(id: string, fn_node: FunctionNode, code: Code) {
+function transform_body(fn_node: FunctionNode, code: Code) {
 
-  fn_node.state = new Set<string>();
+  fn_node.state = [];
   const methods = new Set<string>();
 
   function parse_method(caller: string, node: AnyNode) {
 
     walk(node, {
       Identifier(id_node) {
-        if (fn_node.state.has(id_node.name)) {
+        const state_index = fn_node.state.indexOf(id_node.name);
+        if (state_index != -1) {
+          // code.replace(id_node, `${CONFIG_ID}[${state_index}]`);
           methods.add(caller);
         }
       }
@@ -47,12 +49,24 @@ function transform_body(id: string, fn_node: FunctionNode, code: Code) {
                   }
 
                   const state = return_keys(_node.id);
+                  // const state_keys = [...state].map(s => `'${s}'`).join(',');
 
-                  code.insert(_node.init.start, `${id}.set(`);
+                  // print(code.node_string(_node.init))
+
+                  // code.insert(_node.init.start, `${id}.`)
+                  // code.replace(_node.init, `${CONFIG_ID}(${code.node_string(_node.init)},${state_keys})`)
+
+                  code.replace(_node.init.callee, '$.state')
+
+                  // code.insert(_node.init.start, `${id}.set(`);
                   // code.insert(_node.init.end, `,[${[...state].map(s => `'${s}'`).join(',')}])`);
-                  code.insert(_node.init.end, `)`);
+                  // code.insert(_node.init.end, `)`);
 
-                  state.forEach(s => { fn_node.state.add(s) })
+                  state.forEach((key, index) => {
+                    if (fn_node.state.indexOf(index) == -1) {
+                      fn_node.state.push(key)
+                    }
+                  })
                   // code.insert(node.end, `${id}.set(${substring})`)
                   break;
                 }
@@ -61,9 +75,18 @@ function transform_body(id: string, fn_node: FunctionNode, code: Code) {
               // END STATE
 
               if (is_hook(_node.init)) {
+
+                const hook_keys = return_keys(_node.id);
+
+                hook_keys.forEach((key, index) => {
+                  if (fn_node.state.indexOf(index) == -1) {
+                    fn_node.state.push(key)
+                  }
+                })
+
                 code.insert(
                   _node.init.callee.end,
-                  `(${id})`
+                  `(${CONFIG_ID})`
                 )
                 break;
               }
@@ -97,10 +120,10 @@ function transform_body(id: string, fn_node: FunctionNode, code: Code) {
 
   // print(methods)
 
-  code.insert(fn_node.return_start, `${id}.methods = new Set([${[...methods].join(',')}]);\n`)
+  code.insert(fn_node.return_start, `${CONFIG_ID}.methods = new Set([${[...methods].join(',')}]);\n`)
 
   // code.insert(fn_node.return_start, `${id}.methods({ add, minus });\n`);
-  code.insert(fn_node.return_start, `${id}.batch = () => ({${[...fn_node.state].join(',')}});\n`);
+  // code.insert(fn_node.return_start, `${CONFIG_ID}.batch = () => ({${[...fn_node.state].join(',')}});\n`);
 
 
   // walk(fn_node.body, {
