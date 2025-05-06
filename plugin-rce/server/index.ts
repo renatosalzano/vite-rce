@@ -50,7 +50,7 @@ async function transform(id: string, source_code: string) {
 
     writeFile(resolve(__dirname, '../.local/build.js'), res, 'utf-8')
 
-    return source_code
+    // return source_code
     return res;
 
   } catch (err) {

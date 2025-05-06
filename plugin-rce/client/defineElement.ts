@@ -21,8 +21,6 @@ function defineElement(name: string, component: (props: any) => Config) {
 
         template.init();
 
-        console.log(template)
-
         instances.set(this, { config, template });
 
       }
@@ -62,64 +60,69 @@ type AnyObject = {
 
 class Template {
 
-  mutations = new Mutations();
+  // mutations = new Mutations();
   config = {} as Config;
-  index = 0;
 
-  cached = new Map<number, (HTMLElement | Fragment)>();
-  element_checked = new Set<number>();
+  cache = new Cache(this);
+
+  // cached = new Map<number, (HTMLElement | ConditionalTemplate | ListTemplate)>();
+  // element_checked = new Set<number>();
 
   constructor(config: Config) {
     this.config = config;
   }
 
   init = () => {
-    this.config.render(this._init);
-    this.index = 0;
+    this.cache.start();
+    this.config.render(this.init_cache);
+
+    console.log(this.cache)
+
   }
 
-  _init = (tag: string, props: AnyObject, ...children: any[]) => {
+  init_cache = (tag: string, props: AnyObject, ...children: any[]) => {
 
     switch (tag) {
       case "$if":
       case "$ternary":
-      case "$for":
         // console.log(tag, props, children)
-        this.cache(new Fragment(this.config, tag, props as any, children[0]))
+        this.cache.set(new ConditionalTemplate(this.config, tag, props as any, children[0]))
+        return;
+      case "$for":
+        this.cache.set(new ListTemplate(this.config, props as any, children[0]))
         return;
     }
 
     this.check_mutations(props, children);
-    this.index++;
   }
 
   check_mutations(props: AnyObject, children: any[]) {
 
-    for (const attr_name in props) {
-      if (attr_name.startsWith('on')) return;
-      const attr_value = props[attr_name];
-      console.log(attr_name, attr_value)
-    }
+    // ATTRIBUTES
+    // for (const attr_name in props) {
+    //   if (attr_name.startsWith('on')) return;
+    //   const attr_value = props[attr_name];
+    // }
 
     // TEXT NODE
     let node_index = 0;
     for (const child of children) {
 
       if ($state.isState(child)) {
-        this.mutations.set(this.index, { type: 'text_node', node_index })
+        this.cache.mutation({ type: 'text_node', node_index });
       }
 
       node_index++;
     }
 
-    this.element_checked.add(this.index)
-
+    this.cache.mutations_is_checked();
   }
 
-  cache = (element: HTMLElement | Fragment) => {
-    this.cached.set(this.index, element);
-    this.index++;
-  }
+
+  // cache = (element: HTMLElement | ConditionalTemplate | ListTemplate) => {
+  //   this.cached.set(this.index, element);
+  //   this.index++;
+  // }
 
   h = (tag: string, props: AnyObject, ...children: any[]) => {
 
@@ -127,146 +130,374 @@ class Template {
       return children;
     }
 
-    if (this.cached.has(this.index)) {
+    // console.log(this.cache.index, tag)
 
-      const element = this.cached.get(this.index);
+    if (this.cache.has()) {
 
-      if (element instanceof Fragment) {
-        // console.log(props)
-        const fragment = element.element(props as any);
-        this.index++;
+      const element = this.cache.get();
 
-        return fragment;
+      if (is_directive(element)) {
+
+        const html = element.element(props);
+
+        this.cache.next();
+
+        return html;
       }
 
-      if (!this.element_checked.has(this.index)) {
+      if (this.cache.mutations_not_checked()) {
         this.check_mutations(props, children);
       }
 
-      if (this.mutations.has(this.index)) {
-
-        // console.log(element, 'has mutations', children)
-
-        for (const mutation of this.mutations.get(this.index)) {
-
-          switch (mutation.type) {
-
-            case "text_node": {
-              element.childNodes[mutation.node_index].textContent = children[mutation.node_index]
-              break;
-            }
-
-          }
-
-        }
-
+      if (this.cache.has_mutations()) {
+        this.cache.apply_mutation(element, props, children);
       }
 
-      this.index++;
+      this.cache.next();
 
       return element;
 
     } else {
-      // CREATE ELEMENT
 
-      // console.log('create', tag)
-      const element = document.createElement(tag);
+      if (is_directive(tag)) {
 
-      for (const [name, value] of Object.entries(props ?? {})) {
+        const directive = tag == '$for'
+          ? new ListTemplate(this.config, props as any, children[0])
+          : new ConditionalTemplate(this.config, tag as ConditionalTypes, props as any, children[0]);
 
-        if (name.startsWith('on') && typeof value == 'function') {
+        this.cache.set(directive);
 
-          if (this.config.methods.has(value)) {
-            element[name] = (event: any) => { value(event); this.rerender(); };
-          } else {
-            element[name] = value;
-          }
-
-        } else {
-          element.setAttribute(name, value as string);
-        }
+        return directive.element(props as any);
       }
 
-      for (const child of children) {
-        element.append(child)
-      }
-
-      this.cache(element);
-      return element;
+      return this.create_element(tag, props, children);
     }
   }
 
+  create_element = (tag: string, props: AnyObject, children: HTMLElement[]) => {
+
+    const element = document.createElement(tag);
+
+    for (const [name, value] of Object.entries(props ?? {})) {
+
+      if (name.startsWith('on') && typeof value == 'function') {
+
+        if (this.config.methods.has(value)) {
+          element[name] = (event: any) => { value(event); this.rerender(); };
+        } else {
+          element[name] = value;
+        }
+
+      } else {
+        element.setAttribute(name, value as string);
+      }
+    }
+
+    for (const child of children) {
+      element.append(child)
+    }
+
+    this.cache.set(element);
+
+    return element;
+  }
+
+
   append = (root: HTMLElement) => {
+    this.cache.start();
     const elements = this.config.render(this.h) as HTMLElement[];
 
     for (const element of elements) {
       root.append(element);
     }
 
-    this.index = 0;
-
   }
 
   rerender = () => {
+    this.cache.start();
     this.config.render(this.h);
-    this.index = 0;
+    console.log('rerender', this.cache)
   }
 
 }
 
-type FragmentTypes = '$if' | '$ternary' | '$for';
+type ConditionalTypes = '$if' | '$ternary' | '$for';
 
-class Fragment extends Template {
+class ConditionalTemplate extends Template {
 
-  type: FragmentTypes;
   target: HTMLElement | Comment;
 
   condition: boolean;
   placeholder: Comment;
   render: (h: Function) => any;
 
-  constructor(config: Config, type: FragmentTypes, condition: boolean, render: (h: Function) => any) {
+  constructor(config: Config, type: ConditionalTypes, condition: boolean, render: (h: Function) => any) {
     super(config);
-    this.type = type;
     this.render = render;
 
     this.placeholder = document.createComment(type);
     this.target = this.placeholder;
     this.condition = condition;
 
-    this.render(this._init);
-    this.index = 0;
+    this.cache.start();
+    this.render(this.init_cache);
 
   }
 
   element = (condition: boolean) => {
 
+    this.cache.start();
     const node: HTMLElement | Comment = this.render(this.h) || this.placeholder;
-    this.index = 0;
 
-    switch (this.type) {
-      case "$if":
-      case "$ternary": {
-        if (this.condition != condition) {
-          this.condition = condition;
+    if (!this.target.isConnected) {
+      // first render
+      this.target.replaceWith(node);
+      this.target = node;
 
-          this.target.replaceWith(node);
-          this.target = node;
-        }
-
-        console.log(this.cached)
-        break;
-      }
-      case "$for":
+      return this.target;
     }
 
+    if ((this.condition != condition)) {
+      this.condition = condition;
+
+      this.target.replaceWith(node);
+      this.target = node;
+    }
 
     return this.target;
   }
 
+}
 
-  // h = (type: string, condition: any, elements: Function) => { }
+type ListRender = (h: Function, item?: any, index?: number, array?: any[]) => HTMLElement;
 
+class ListTemplate extends Template {
+
+  node_list = new Map<number, HTMLElement | Comment>();
+
+  placeholder: Comment;
+  render: ListRender;
+
+  first_render = true;
+
+  constructor(config: Config, array: any[], render: ListRender) {
+    super(config);
+
+    this.render = render;
+
+    this.placeholder = document.createComment('$for');
+
+    const item = array[0];
+
+
+    this.cache.start();
+    this.render(this.init_cache, item, 0, array);
+
+    this.node_list.set(0, this.placeholder);
+
+  }
+
+  element = (array: any[]) => {
+
+    const fragment = document.createDocumentFragment();
+
+    const max_index = Math.max(array.length, this.node_list.size);
+    let last_element: HTMLElement | Comment = this.placeholder;
+
+    this.cache.start_list();
+
+    for (let index = 0; index < max_index; index++) {
+
+      if (index < array.length) {
+
+        const item = array[index];
+
+        this.cache.start()
+        const element = this.render(this.h, item, index, array);
+
+        if (this.node_list.has(index)) {
+
+          const dom_element = this.node_list.get(index);
+
+          if (!dom_element.isEqualNode(element)) {
+            // replace element
+            dom_element.replaceWith(element);
+            this.node_list.set(index, element);
+            last_element = element;
+          } else {
+            // keep element
+            last_element = dom_element;
+          }
+
+        } else {
+          // add element
+          this.node_list.set(index, element);
+          last_element.after(element);
+          last_element = element;
+        }
+
+
+        if (this.first_render) {
+          fragment.append(last_element);
+        }
+
+      } else {
+        // remove element from DOM
+
+        if (this.node_list.size == 1) {
+
+          this.node_list.get(0).replaceWith(this.placeholder);
+          this.node_list.set(0, this.placeholder);
+        } else {
+
+          this.node_list.get(index).remove();
+          this.node_list.delete(index)
+        }
+      }
+
+      this.cache.next(true);
+    } // end for
+
+    if (this.first_render) {
+      this.first_render = false;
+
+      if (this.node_list.size == 0) {
+        return this.placeholder;
+      }
+
+      return fragment;
+    }
+
+  }
+
+
+  update_item() { }
+
+}
+
+
+class Cache {
+
+  cached = new Map<number, any>();
+  mutations = new Mutations();
+  mutations_checked = new Set<number>();
+
+  cache_list = false;
+
+  index = 0;
+  list_index = 0;
+
+  constructor(instance?: Template) {
+    this.cache_list = instance instanceof ListTemplate;
+  }
+
+  set = (element: any) => {
+
+    if (this.cache_list) {
+
+      const cached = this.cached_list();
+
+      cached.set(this.index, element);
+      this.index++;
+      return;
+    }
+
+    this.cached.set(this.index, element);
+    this.index++;
+  }
+
+  next = (list_index = false) => {
+
+    if (list_index) {
+      this.list_index++;
+    } else {
+      this.index++;
+    }
+  }
+
+  has = () => {
+
+    if (this.cache_list) {
+
+      const cached = this.cached_list();
+      return cached.has(this.index)
+    }
+
+    return this.cached.has(this.index);
+  }
+
+  get = () => {
+
+    if (this.cache_list) {
+
+      const cached = this.cached_list();
+      return cached.get(this.index)
+    }
+
+    return this.cached.get(this.index);
+  }
+
+  start = () => {
+    this.index = 0;
+  }
+
+  start_list = () => {
+    this.list_index = 0;
+  }
+
+  cached_list = () => {
+
+    if (!this.cached.has(this.list_index)) {
+      this.cached.set(this.list_index, new Map())
+    }
+
+    return this.cached.get(this.list_index);
+  }
+
+  clear_list = () => {
+
+    if (this.cached.has(this.list_index)) {
+      this.cached.delete(this.list_index)
+    }
+  }
+
+  mutations_is_checked = () => {
+    this.mutations_checked.add(this.index);
+    this.next();
+  }
+
+  mutations_not_checked = () => {
+    return !this.mutations_checked.has(this.index);
+  }
+
+  has_mutations = () => {
+    return this.mutations.has(this.index);
+  }
+
+  get_mutations = () => {
+    return this.mutations.get(this.index);
+  }
+
+  mutation = (mutation: MutationList[number]) => {
+    this.mutations.set(this.index, mutation);
+  }
+
+  apply_mutation = (element: HTMLElement, props: AnyObject, child_nodes: any[]) => {
+
+    // console.log('apply mutation', element)
+    for (const mutation of this.mutations.get(this.index)) {
+
+      switch (mutation.type) {
+
+        case "text_node": {
+          element.childNodes[mutation.node_index].textContent = child_nodes[mutation.node_index]
+          break;
+        }
+
+      }
+
+    }
+  }
 
 }
 
@@ -303,5 +534,21 @@ class Mutations {
     return this.mutations.get(index)
   }
 }
+
+function is_directive(element: any) {
+
+  if (typeof element == 'string') {
+
+    switch (element) {
+      case '$if':
+      case '$ternary':
+      case '$for':
+        return true;
+    }
+  }
+
+  return element instanceof ConditionalTemplate || element instanceof ListTemplate;
+}
+
 
 export default defineElement;

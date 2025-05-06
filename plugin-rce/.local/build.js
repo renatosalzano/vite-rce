@@ -33,8 +33,9 @@ __my_component = createConfig('my-component', {title});
   const props = {};
   __my_component.methods = new Set([add,minus,plus]);
 __my_component.batch = () => ({counter,other_counter,array});
-return /* @__PURE__ */ (__my_component.render = (h) =>h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("strong", { class: "porco dio" }, "counter is ", counter, " ", counter, " ", counter), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus"), /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("button", { onclick: plus }, "plus")), 
-h('$if',counter > 0,(h)=>counter > 0 && /* @__PURE__ */ h("div", null, "if condition ", /* @__PURE__ */ h("div", null, "counter is ", other_counter)))),__my_component);
+return /* @__PURE__ */ (__my_component.render = (h) =>h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("strong", { class: "to do" }, "counter is ", counter, " ", counter, " ", counter), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus"), /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("button", { onclick: plus }, "plus")), 
+h('$for', array || [],((h,i, _index, _arr) => /* @__PURE__ */ h("p", { onclick: () => test(i) }, /* @__PURE__ */ h("span", null, "item ", i), 
+h('$if',i == 2,(h)=>i == 2 && /* @__PURE__ */ h("strong", null, "test if nested")))))),__my_component);
 };
 function StatelessComponent(props) {
 __custom_div = createConfig('custom-div', props);

@@ -66,21 +66,21 @@ const Component = ({ title = 'hello rce' }) => {
     <my-component>
       <h2>my component</h2>
       {/* <span {...props}>{counter}</span> */}
-      <strong class={'porco dio'}>counter is {counter} {counter} {counter}</strong>
+      <strong class={'to do'}>counter is {counter} {counter} {counter}</strong>
       <button onclick={add}>add</button>
       <button onclick={minus}>minus</button>
       <div>
         <button onclick={plus}>plus</button>
       </div>
-      {counter > 0 && (<div>if condition <div>counter is {other_counter}</div></div>)}
-      {/* {(array || []).map((ele) => (
-        <p onclick={() => test(ele)}>
-          {ele}
-          {ele == 5 && (
+      {/* {counter > 0 && (<div>if condition <div>counter is {other_counter}</div></div>)} */}
+      {(array || []).map((i, _index, _arr) => (
+        <p onclick={() => test(i)}>
+          <span>item {i}</span>
+          {i == 2 && (
             <strong>test if nested</strong>
           )}
         </p>
-      ))} */}
+      ))}
       {/* {counter > 0 ? (<span>counter is greater than 0</span>) : (<span>counter is 0</span>)} */}
     </my-component>
   )

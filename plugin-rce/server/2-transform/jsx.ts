@@ -2,6 +2,7 @@ import {
   acorn,
   walk,
   FunctionNode,
+  return_keys,
 } from "../acorn";
 
 import { print } from "../../utils/shortcode";
@@ -40,12 +41,26 @@ function transform_factory(node: acorn.AnyNode) {
 
       } else if (is_map(node)) {
         // print(node)
-        const condition = code.node_string((node.callee as acorn.MemberExpression).object);
-        code.insert(node.start, `\nh('$for',${condition},(h)=>`);
-        code.insert(node.end, ')');
+        const array = code.node_string((node.callee as acorn.MemberExpression).object);
 
-        print((node.arguments[0] as acorn.Function).body)
-        print(code.node_string(node))
+        // const map_callback = code.node_string(node.arguments[0]);
+
+        // console.log(code.node_string(node.callee))
+        code.replace(node.callee, `\nh('$for', ${array},`);
+
+        let params = 'h';
+
+        switch (node.arguments[0].type) {
+          case 'FunctionExpression':
+          case 'ArrowFunctionExpression': {
+
+            const params_start = code.find_index(node.arguments[0].start, '(');
+            code.insert(params_start, 'h,')
+
+          }
+        }
+        // code.insert(node.start, `\nh('$for', ${array}, (h)=>`);
+        code.insert(node.end, ')');
 
         transform_factory((node.arguments[0] as acorn.Function).body);
       }
