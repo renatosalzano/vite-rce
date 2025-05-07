@@ -10,8 +10,6 @@ function transform_custom_element(node: FunctionNode, code: Code) {
   // print(props_keys)
   // print(code.slice(node.start, node.body.start))
 
-  console.log(node.props)
-
   const props = [...node.props].join(',');
 
   // code.insert(0, `let ${config_ID};\n`);
@@ -62,6 +60,10 @@ function transform_custom_element(node: FunctionNode, code: Code) {
   // code.insert(-1, `${component_id}.register('${node.tag_name}');\n`)
 
   transform_body(node, code);
+
+  node.reactive_keys_reg = node.state.size == 0
+    ? undefined
+    : new RegExp([...node.state].join('|'), 'g');
 
   transform_jsx(node, code);
 

@@ -245,9 +245,9 @@ class ConditionalTemplate extends Template {
 
   condition: boolean;
   placeholder: Comment;
-  render: (h: Function) => any;
+  render: (condition: boolean, h: Function) => any;
 
-  constructor(config: Config, type: ConditionalTypes, condition: boolean, render: (h: Function) => any) {
+  constructor(config: Config, type: ConditionalTypes, condition: boolean, render: any) {
     super(config);
     this.render = render;
 
@@ -256,14 +256,14 @@ class ConditionalTemplate extends Template {
     this.condition = condition;
 
     this.cache.start();
-    this.render(this.init_cache);
+    this.render(condition, this.init_cache);
 
   }
 
   element = (condition: boolean) => {
 
     this.cache.start();
-    const node: HTMLElement | Comment = this.render(this.h) || this.placeholder;
+    const node: HTMLElement | Comment = this.render(condition, this.h) || this.placeholder;
 
     if (!this.target.isConnected) {
       // first render

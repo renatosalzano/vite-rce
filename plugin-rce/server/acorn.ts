@@ -15,7 +15,7 @@ export interface FunctionNode extends acorn.Function {
   props_type?: 'ObjectPattern' | 'Identifier';
   state?: Set<string>;
   hook_var?: Set<string>;
-  return_deps?: (code: string) => string[]
+  reactive_keys_reg?: RegExp
 }
 
 export type FunctionBody = acorn.BlockStatement | acorn.Expression;

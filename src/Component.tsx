@@ -64,6 +64,8 @@ export const Component = ({ title = 'hello rce' }) => {
     counter -= 1;
 
     array.pop()
+
+    nil = null;
   }
 
   function test(i: number) {
@@ -79,6 +81,8 @@ export const Component = ({ title = 'hello rce' }) => {
 
     array = array.map((item) => item + 1);
     console.log(array)
+
+    nil = "IS DEFINED"
   }
 
 
@@ -97,6 +101,8 @@ export const Component = ({ title = 'hello rce' }) => {
           other counter is {other_counter}
         </div>
       </div>
+      {nil !== null && (<span>{nil}</span>)}
+      {nil == null ? null : <span>not null</span>}
       {/* {counter > 0 && (<div>if condition <div>counter is {other_counter}</div></div>)} */}
       {(array || []).map((parent_index, _index, _arr) => (
         <div>
@@ -125,7 +131,7 @@ const add = _id.method(function add() {
 */
 
 
-const StatelessComponent = (props) => <custom-div>{props.hello && <span>hello</span>}</custom-div>;
+/* const StatelessComponent = (props) => <custom-div>{props.hello && <span>hello</span>}</custom-div>; */
 
 // const Comp = function (props) { return <custom-span>{props.hello}</custom-span> }
 

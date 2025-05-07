@@ -25,13 +25,24 @@ function transform_jsx(_node: FunctionNode, _code: Code) {
 }
 
 
-function transform_factory(node: acorn.AnyNode) {
+function transform_condition(condition: string) {
+  return condition.replace(
+    node.reactive_keys_reg,
+    (match) => {
+      console.log('match', match);
+      return `$.get_value(${match})`
+    }
+  )
+}
 
-  switch (node.type) {
+
+function transform_factory(h_node: acorn.AnyNode) {
+
+  switch (h_node.type) {
     case "CallExpression": {
 
-      if (is_factory(node)) {
-        const [, children] = destructure_factory(node);
+      if (is_factory(h_node)) {
+        const [, children] = destructure_factory(h_node);
 
         for (const child of children) {
           transform_factory(child)
@@ -39,46 +50,49 @@ function transform_factory(node: acorn.AnyNode) {
 
         break;
 
-      } else if (is_map(node)) {
+      } else if (is_map(h_node)) {
         // print(node)
-        const array = code.node_string((node.callee as acorn.MemberExpression).object);
+        const array = code.node_string((h_node.callee as acorn.MemberExpression).object);
 
         // const map_callback = code.node_string(node.arguments[0]);
 
         // console.log(code.node_string(node.callee))
-        code.replace(node.callee, `\nh('$for', ${array},`);
+        code.replace(h_node.callee, `\nh('$for', ${array},`);
 
-        let params = 'h';
-
-        switch (node.arguments[0].type) {
+        switch (h_node.arguments[0].type) {
           case 'FunctionExpression':
           case 'ArrowFunctionExpression': {
 
-            const params_start = code.find_index(node.arguments[0].start, '(');
+            const params_start = code.find_index(h_node.arguments[0].start, '(');
             code.insert(params_start, 'h,')
 
           }
         }
         // code.insert(node.start, `\nh('$for', ${array}, (h)=>`);
-        code.insert(node.end, ')');
+        code.insert(h_node.end, ')');
 
-        transform_factory((node.arguments[0] as acorn.Function).body);
+        transform_factory((h_node.arguments[0] as acorn.Function).body);
       }
       break;
     }
     case "LogicalExpression":
-      // print(node.operator)
 
-      const condition = code.node_string(node.left);
-      code.insert(node.start, `\nh('$if',${condition},(h)=>`);
-      code.insert(node.end, ')');
+      const condition = transform_condition(code.node_string(h_node.left));
+
+      code.insert(h_node.start, `\nh('$if',${condition},(c, h)=>`);
+      code.replace(h_node.left, 'c');
+      code.insert(h_node.end, ')');
+
       break;
 
     case 'ConditionalExpression': {
-      const condition = code.node_string(node.test);
+      const condition = transform_condition(code.node_string(h_node.test));
 
-      code.insert(node.start, `\nh('$ternary',${condition},(h)=>`);
-      code.insert(node.end, ')');
+      print(condition)
+
+      code.insert(h_node.start, `\nh('$ternary',${condition},(c, h)=>`);
+      code.replace(h_node.test, 'c');
+      code.insert(h_node.end, ')');
       break;
     }
   }
