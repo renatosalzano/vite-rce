@@ -5,20 +5,78 @@ import { print } from "../../utils/shortcode";
 
 function transform_body(fn_node: FunctionNode, code: Code) {
 
-  fn_node.state = [];
+  fn_node.state = new Set<string>();
   const methods = new Set<string>();
 
-  function parse_method(caller: string, node: AnyNode) {
+  function parse_method(caller: string, fnode: acorn.Function) {
 
-    walk(node, {
-      Identifier(id_node) {
-        const state_index = fn_node.state.indexOf(id_node.name);
-        if (state_index != -1) {
-          // code.replace(id_node, `${CONFIG_ID}[${state_index}]`);
-          methods.add(caller);
+    const reactive_keys = new Set<string>()
+
+    walk(fnode as AnyNode, {
+      Identifier(node) {
+        if (fn_node.state.has(node.name)) {
+          code.insert(node.start, '_')
+          reactive_keys.add(node.name);
+          methods.add(caller)
         }
       }
-    })
+    });
+
+    if (reactive_keys.size == 0) return;
+
+    const getter_keys = [...reactive_keys].map(k => `_${k}`).join(',');
+    const keys = [...reactive_keys].join(',');
+
+    if (fnode.body.type == 'BlockStatement') {
+
+      const [node_start, node_end] = [fnode.body.body[0].start - 1, fnode.body.body.at(-1).end + 1]
+      // const index_start = code.find_index(fnode.body.start, '{');
+      // const index_end = code.find_index(fnode.body.end, '{');
+      code.insert(node_start, `let [${getter_keys}] = $.get(${keys});\n`);
+      code.insert(node_end, `\n $.set([${keys}], [${getter_keys}]);\n`);
+    }
+
+    print(reactive_keys)
+
+    // walk(fnode, {
+
+    //   AssignmentExpression(node) {
+
+    //     if (node.left.type == 'Identifier' && fn_node.state.has(node.left.name)) {
+    //       code.insert(node.start, `$.set(${node.left.name},`);
+    //       code.insert(node.end, ')');
+    //     }
+
+    //   },
+
+    //   MemberExpression(node) {
+
+    //     if (node.object.type == 'Identifier' && fn_node.state.has(node.object.name)) {
+    //       code.replace(node.object, `$.get(${node.object.name})`);
+    //     }
+    //   },
+
+    //   CallExpression(node) {
+    //     print(code.node_string(node))
+
+    //     print(node)
+    //     for (const node_argument of node.arguments) {
+    //       walk(node_argument, {
+    //         Identifier(id) {
+    //           if (fn_node.state.has(id.name)) {
+    //             code.replace(id, `$.get(${id.name})`)
+    //           }
+    //         }
+    //       })
+    //     }
+    //   },
+
+    //   Identifier(id_node) {
+    //     if (fn_node.state.has(id_node.name)) {
+    //       methods.add(caller);
+    //     }
+    //   }
+    // })
 
   }
 
@@ -63,9 +121,7 @@ function transform_body(fn_node: FunctionNode, code: Code) {
                   // code.insert(_node.init.end, `)`);
 
                   state.forEach((key, index) => {
-                    if (fn_node.state.indexOf(index) == -1) {
-                      fn_node.state.push(key)
-                    }
+                    fn_node.state.add(key);
                   })
                   // code.insert(node.end, `${id}.set(${substring})`)
                   break;
@@ -79,9 +135,7 @@ function transform_body(fn_node: FunctionNode, code: Code) {
                 const hook_keys = return_keys(_node.id);
 
                 hook_keys.forEach((key, index) => {
-                  if (fn_node.state.indexOf(index) == -1) {
-                    fn_node.state.push(key)
-                  }
+                  fn_node.state.add(key);
                 })
 
                 code.insert(

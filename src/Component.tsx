@@ -30,6 +30,8 @@ export const Component = ({ title = 'hello rce' }) => {
   let other_counter = $state(0);
   let date = $state(new Date());
   let und = $state(undefined);
+  let nil = $state(null);
+  let { a: ALIAS, b, c } = $state({ a: 1, b: 2, c: "pippo" });
   // let { a: A, b, c: ALIAS } = $state({ a: 0, b: 1, c: 2 });
   // let [AAA, BBB] = $state(['a', 'b'])
   let array = $state([1, 2, 3])
@@ -71,6 +73,12 @@ export const Component = ({ title = 'hello rce' }) => {
 
   function plus() {
     other_counter += 1;
+
+    ALIAS++;
+    b++;
+
+    array = array.map((item) => item + 1);
+    console.log(array)
   }
 
 

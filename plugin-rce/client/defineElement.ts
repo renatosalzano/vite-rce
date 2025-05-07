@@ -18,7 +18,7 @@ function defineElement(name: string, component: (props: any) => Config) {
 
         const config = component({});
 
-        console.log(config)
+        // console.log(config)
 
         const template = new Template(config);
 
@@ -62,7 +62,7 @@ type AnyObject = {
 class Template {
 
   // mutations = new Mutations();
-  config = {} as Config;
+  $ = {} as Config;
 
   cache = new Cache(this);
 
@@ -70,12 +70,12 @@ class Template {
   // element_checked = new Set<number>();
 
   constructor(config: Config) {
-    this.config = config;
+    this.$ = config;
   }
 
   init = () => {
     this.cache.start();
-    this.config.render(this.init_cache);
+    this.$.render(this.init_cache);
 
     console.log(this.cache)
 
@@ -87,10 +87,10 @@ class Template {
       case "$if":
       case "$ternary":
         // console.log(tag, props, children)
-        this.cache.set(new ConditionalTemplate(this.config, tag, props as any, children[0]))
+        this.cache.set(new ConditionalTemplate(this.$, tag, props as any, children[0]))
         return;
       case "$for":
-        this.cache.set(new ListTemplate(this.config, props as any, children[0]))
+        this.cache.set(new ListTemplate(this.$, props as any, children[0]))
         return;
     }
 
@@ -110,7 +110,7 @@ class Template {
     let node_index = 0;
     for (const child of children) {
 
-      if (this.config.is_state(child)) {
+      if (this.$.is_state(child)) {
         this.cache.mutation({ type: 'text_node', node_index });
       }
 
@@ -128,7 +128,7 @@ class Template {
 
   h = (tag: string, props: AnyObject, ...children: any[]) => {
 
-    if (tag == this.config.element_name) {
+    if (tag == this.$.element_name) {
       return children;
     }
 
@@ -136,9 +136,15 @@ class Template {
 
     if (this.cache.has()) {
 
+      console.log
+
       const element = this.cache.get();
 
       if (is_directive(element)) {
+
+        if (this.$.is_state(props)) {
+          props = this.$.get_state(props);
+        }
 
         const html = element.element(props);
 
@@ -148,11 +154,13 @@ class Template {
       }
 
       if (this.cache.mutations_not_checked()) {
+        console.log('check mutation')
         this.check_mutations(props, children);
       }
 
       if (this.cache.has_mutations()) {
-        this.cache.apply_mutation(element, props, children);
+        console.log('has mutations', props, children)
+        this.cache.apply_mutation(this.$, element, props, children);
       }
 
       this.cache.next();
@@ -164,8 +172,8 @@ class Template {
       if (is_directive(tag)) {
 
         const directive = tag == '$for'
-          ? new ListTemplate(this.config, props as any, children[0])
-          : new ConditionalTemplate(this.config, tag as ConditionalTypes, props as any, children[0]);
+          ? new ListTemplate(this.$, props as any, children[0])
+          : new ConditionalTemplate(this.$, tag as ConditionalTypes, props as any, children[0]);
 
         this.cache.set(directive);
 
@@ -184,7 +192,7 @@ class Template {
 
       if (name.startsWith('on') && typeof value == 'function') {
 
-        if (this.config.methods.has(value)) {
+        if (this.$.methods.has(value)) {
           element[name] = (event: any) => { value(event); this.rerender(); };
         } else {
           element[name] = value;
@@ -196,7 +204,13 @@ class Template {
     }
 
     for (const child of children) {
-      element.append(child)
+
+      if (this.$.is_state(child)) {
+        element.append(this.$.get_state(child));
+      } else {
+        element.append(child)
+      }
+
     }
 
     this.cache.set(element);
@@ -207,7 +221,7 @@ class Template {
 
   append = (root: HTMLElement) => {
     this.cache.start();
-    const elements = this.config.render(this.h) as HTMLElement[];
+    const elements = this.$.render(this.h) as HTMLElement[];
 
     for (const element of elements) {
       root.append(element);
@@ -217,7 +231,7 @@ class Template {
 
   rerender = () => {
     this.cache.start();
-    this.config.render(this.h);
+    this.$.render(this.h);
     console.log('rerender', this.cache)
   }
 
@@ -282,25 +296,27 @@ class ListTemplate extends Template {
 
   first_render = true;
 
-  constructor(config: Config, array: any[], render: ListRender) {
-    super(config);
+  constructor($: Config, array: any[], render: ListRender) {
+    super($);
 
     this.render = render;
 
     this.placeholder = document.createComment('$for');
 
-    const item = array[0];
+    const item = this.$.is_state(array)
+      ? this.$.create_state(array[0])
+      : array[0]
 
     this.cache.start();
     this.render(this.init_cache, item, 0, array);
 
     this.node_list.set(0, this.placeholder);
 
+    console.log('LIST CACHE', this.cache)
+
   }
 
   element = (array: any[]) => {
-
-    array.forEach(i => console.log(i))
 
     const fragment = document.createDocumentFragment();
 
@@ -485,9 +501,7 @@ class Cache {
     this.mutations.set(this.index, mutation);
   }
 
-  apply_mutation = (element: HTMLElement, props: AnyObject, child_nodes: any[]) => {
-
-    console.log('apply_mutation', element, this.mutations.get(this.index))
+  apply_mutation = ($: Config, element: HTMLElement, props: AnyObject, child_nodes: any[]) => {
 
     // console.log('apply mutation', element)
     for (const mutation of this.mutations.get(this.index)) {
@@ -495,7 +509,10 @@ class Cache {
       switch (mutation.type) {
 
         case "text_node": {
-          element.childNodes[mutation.node_index].textContent = child_nodes[mutation.node_index]
+          const value = $.get_value(child_nodes[mutation.node_index]);
+          if (element.childNodes[mutation.node_index].textContent != value) {
+            element.childNodes[mutation.node_index].textContent = value;
+          }
           break;
         }
 
