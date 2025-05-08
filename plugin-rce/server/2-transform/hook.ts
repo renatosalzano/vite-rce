@@ -1,8 +1,8 @@
 import { Code } from "..";
 import { FunctionNode } from "../acorn";
-import { print } from "../../utils/shortcode";
+import { CONFIG_ID } from "../../constant";;
 import transform_body from "./function_body";
-import { CONFIG_ID } from "../constant";
+// import { print } from "../../utils/shortcode";
 
 function parse_hook(node: FunctionNode, code: Code) {
   // code.replace(node, `function ${node.caller_id}(_c) {

@@ -5,6 +5,8 @@ import {
   return_keys,
 } from "../acorn";
 
+import { CONFIG_ID, CREATE_REACTIVE_VALUE, GET_VALUE } from "../../constant";
+
 import { print } from "../../utils/shortcode";
 import { Code } from "..";
 
@@ -26,14 +28,19 @@ function transform_jsx(_node: FunctionNode, _code: Code) {
 
 
 function transform_condition(condition: string) {
+
+  transform_condition.transformed = false;
+
   return condition.replace(
     node.reactive_keys_reg,
     (match) => {
-      console.log('match', match);
-      return `$.get_value(${match})`
+      transform_condition.transformed = true;
+      return `${CONFIG_ID}.${GET_VALUE}(${match})`
     }
   )
 }
+
+transform_condition.transformed = false;
 
 
 function transform_factory(h_node: acorn.AnyNode) {
@@ -75,24 +82,111 @@ function transform_factory(h_node: acorn.AnyNode) {
       }
       break;
     }
-    case "LogicalExpression":
+    case "LogicalExpression": {
+
+      // left operator right 
 
       const condition = transform_condition(code.node_string(h_node.left));
 
-      code.insert(h_node.start, `\nh('$if',${condition},(c, h)=>`);
-      code.replace(h_node.left, 'c');
+      if (!is_factory(h_node.right) && !is_map(h_node.right)) {
+
+        code.replace(
+          h_node.left,
+          condition
+        )
+
+        return;
+      }
+
+      const operator_end = code
+        .find_index(h_node.left.end, h_node.operator[0], true)
+        + h_node.operator.length;
+
+      code.insert(h_node.start, `\nh('$if',${condition},(h)=>`);
+      code.replace({
+        start: h_node.left.start,
+        end: operator_end
+      }, '');
+
+      transform_factory(h_node.right);
+
       code.insert(h_node.end, ')');
 
       break;
+    }
 
     case 'ConditionalExpression': {
+      // bool ? consequent : alternate
+
       const condition = transform_condition(code.node_string(h_node.test));
 
-      print(condition)
+      if (
+        !is_factory(h_node.consequent)
+        && !is_map(h_node.consequent)
+        && !is_factory(h_node.alternate)
+        && !is_map(h_node.alternate)
+      ) {
 
-      code.insert(h_node.start, `\nh('$ternary',${condition},(c, h)=>`);
-      code.replace(h_node.test, 'c');
-      code.insert(h_node.end, ')');
+        code.replace(h_node.test, condition);
+
+        if (transform_condition.transformed) {
+
+          code.insert(
+            h_node.consequent.start,
+            `${CONFIG_ID}.${CREATE_REACTIVE_VALUE}(`
+          )
+
+          code.insert(
+            h_node.consequent.end,
+            ')'
+          )
+
+          code.insert(
+            h_node.alternate.start,
+            `${CONFIG_ID}.${CREATE_REACTIVE_VALUE}(`
+          )
+
+          code.insert(
+            h_node.alternate.end,
+            ')'
+          )
+        }
+        print('is transformed', transform_condition.transformed)
+        return;
+      }
+
+      const consequent_start = code.find_index(h_node.test.end, '?');
+      const alternate_start = code.find_index(h_node.consequent.end, ':', true);
+
+      code.replace({
+        start: h_node.start,
+        end: consequent_start
+      }, '');
+
+
+
+      code.insert(consequent_start, `\nh('$if', ${condition}, (h) =>`);
+
+      transform_factory(h_node.consequent)
+
+      code.insert(h_node.consequent.end, '),')
+
+      code.replace(
+        { start: alternate_start, end: alternate_start + 1 },
+        `\nh('$if', !(${condition}), (h) =>`
+      )
+
+      transform_factory(h_node.alternate);
+
+      code.insert(h_node.alternate.end, ')')
+
+
+      // code.insert(h_node.start, `\nh('$if', ${condition}, (c, h) =>`);
+      // code.replace(h_node.test, 'c');
+      // code.insert(h_node.end, ')');
+
+      // transform_factory(h_node.consequent);
+      // transform_factory(h_node.alternate);
       break;
     }
   }

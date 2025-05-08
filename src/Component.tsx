@@ -1,4 +1,4 @@
-import { $state } from 'rce'
+import { $state } from '@rce';
 
 
 function $hook() {
@@ -26,46 +26,17 @@ function Partial() {
 
 export const Component = ({ title = 'hello rce' }) => {
 
-  let counter = $state(0);
-  let other_counter = $state(0);
-  let date = $state(new Date());
-  let und = $state(undefined);
-  let nil = $state(null);
-  let { a: ALIAS, b, c } = $state({ a: 1, b: 2, c: "pippo" });
-  // let { a: A, b, c: ALIAS } = $state({ a: 0, b: 1, c: 2 });
-  // let [AAA, BBB] = $state(['a', 'b'])
+  let show = $state(false)
   let array = $state([1, 2, 3])
 
-  let { bool, method } = $hook();
   // let [bool] = $hook()
 
   function add() {
-
-    method()
-
     array.push(array.length + 1)
-    counter += 1;
-
-    console.log('from component', counter)
-    // console.log(counter)
-
-    bool = !bool;
-
-    const test = 0;
-
-    // console.log(bool)
-
-    // function test() {
-    //   counter;
-    // }
   }
 
   const minus = () => {
-    counter -= 1;
-
     array.pop()
-
-    nil = null;
   }
 
   function test(i: number) {
@@ -73,16 +44,8 @@ export const Component = ({ title = 'hello rce' }) => {
     console.log(`u click the number ${i}`)
   }
 
-  function plus() {
-    other_counter += 1;
-
-    ALIAS++;
-    b++;
-
-    array = array.map((item) => item + 1);
-    console.log(array)
-
-    nil = "IS DEFINED"
+  function toggle_list() {
+    show = !show
   }
 
 
@@ -92,23 +55,30 @@ export const Component = ({ title = 'hello rce' }) => {
     <my-component>
       <h2>my component</h2>
       {/* <span {...props}>{counter}</span> */}
-      <strong class={'to do'}>counter is {counter} {counter} {counter}</strong>
-      <button onclick={add}>add</button>
-      <button onclick={minus}>minus</button>
-      <div>
-        <button onclick={plus}>plus</button>
-        <div>
-          other counter is {other_counter}
-        </div>
+      {/* <strong class={'to do'}>counter is {counter} {counter} {counter}</strong> */}
+      <div class='flex column'>
+        <button onclick={toggle_list}>list: {show ? 'true' : 'false'}</button>
+        <button onclick={add}>add</button>
+        <button onclick={minus}>minus</button>
+
       </div>
-      {nil !== null && (<span>{nil}</span>)}
-      {nil == null ? null : <span>not null</span>}
-      {/* {counter > 0 && (<div>if condition <div>counter is {other_counter}</div></div>)} */}
-      {(array || []).map((parent_index, _index, _arr) => (
-        <div>
-          item - {parent_index}
-        </div>
+
+
+      {show && array.map((i) => (
+        <div>list item - {i}</div>
       ))}
+      {/* {nil !== null && (<span>{nil}</span>)} */}
+      {/* {nil == null
+        ? null
+        : ((array || []).map((parent_index, _index, _arr) => (
+          <div>
+            item - {parent_index}
+          </div>
+        )))
+      } */}
+
+      {/* {array.map((i) => (<div>list item - {i}</div>))} */}
+      {/* {counter > 0 && (<div>if condition <div>counter is {other_counter}</div></div>)} */}
       {/* {counter > 0 ? (<span>counter is greater than 0</span>) : (<span>counter is 0</span>)} */}
     </my-component>
   )

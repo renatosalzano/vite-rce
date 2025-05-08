@@ -1,9 +1,9 @@
 import { acorn, walk, type FunctionNode } from '../acorn';
 // import { walk } from 'zimmerframe';
 // import { Node } from 'estree';
+import { HOOK_START } from "../../constant";
 import { print } from '../../utils/shortcode';
 import { Code } from '..';
-import { HOOK_START } from '../constant';
 
 
 let TAG_NAMES: Set<string>;

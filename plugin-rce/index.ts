@@ -1,5 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "fs";
-import { basename, dirname, join, relative, resolve } from "path";
+import { writeFile } from "fs/promises";
+import { build } from "esbuild";
+import { basename, dirname, join, posix, relative, resolve } from "path";
 import {
   createFilter,
   normalizePath,
@@ -19,11 +21,12 @@ function viteRCE(config: Config): Plugin {
 
   let src_dir = src;
   let command = '';
-  let imports: string[] = []
+  let imports: string[] = [];
+  let client_code: string;
 
   let dev_server: ViteDevServer
 
-  const src_js = createFilter(
+  const is_src_file = createFilter(
     `${src}/**/*.{jsx,tsx}`,
     'node_modules/**'
   );
@@ -55,7 +58,7 @@ function viteRCE(config: Config): Plugin {
         },
         // resolve: {
         //   alias: {
-        //     'rce': resolve(__dirname, './client/index.ts')
+        //     '@rce/constant': resolve(__dirname, './constant.ts')
         //   }
         // }
       }
@@ -90,7 +93,33 @@ function viteRCE(config: Config): Plugin {
       });
     },
 
-    buildStart() {
+    async buildStart() {
+
+      // console.log("RESULT", result)
+
+      try {
+
+        // lib build
+
+        const result = await build({
+          entryPoints: ['plugin-rce/client/build.ts'],
+          bundle: true,
+          write: false,
+          format: 'esm',
+          platform: 'node',
+          packages: 'external',
+        });
+
+        client_code = result.outputFiles[0].text;
+
+        writeFile(resolve(__dirname, `./.local/build.js`), client_code, 'utf-8');
+
+      } catch (err) {
+        print(err);
+      }
+
+
+
 
       const source = readdirSync(
         src_dir,
@@ -111,7 +140,7 @@ function viteRCE(config: Config): Plugin {
 
             const path = resolve((file.parentPath || file.path), file.name);
 
-            if (src_js(path)) {
+            if (is_src_file(path)) {
               dev_server.transformRequest(path)
             }
           };
@@ -125,32 +154,40 @@ function viteRCE(config: Config): Plugin {
     // 1.
     resolveId(id, importer) {
 
-      // print(id, importer
+      print(id, importer)
 
-      if (id == 'rce') {
-        return { id: '/rce/client' }
+      if (id.startsWith('@rce') && is_src_file(importer)) {
+        if (id == '@rce/dev') {
+          return { id: '/rce/dev' }
+        }
+        return { id: '@rce/client/lib.ts' }
       }
 
-      if (id == '/rce/client') {
-        return { id };
+      if (id.startsWith('@rce')) {
+        return { id }
       }
 
-      if (importer == '/rce/client') {
-        id = join('/rce/client', id + '.ts');
-        return { id };
+      if (importer.startsWith('@rce')) {
+        print(posix.join(importer, id))
+        return { id }
+        // return { id: join(importer, id) }
       }
     },
     // 2. load code from id
     load(id) {
-      if (id.startsWith('/rce/client')) {
-        let path = './client';
 
-        if (id == '/rce/client') {
-          path = join(path, 'index.ts');
-        } else {
-          path = join(path, basename(id));
-        }
-        print('load;y', path);
+      if (id == '/rce/dev') {
+        return client_code;
+      }
+
+      if (id == '@rce/client/lib.ts') {
+        const code = readFileSync(resolve(__dirname, './client/lib.ts'), 'utf-8');
+        return code;
+      }
+
+      if (id.startsWith('@rce')) {
+        const path = './client/index.ts'
+        print('load;y', path)
         let code = readFileSync(resolve(__dirname, path), 'utf-8');
         return code
 
@@ -158,7 +195,7 @@ function viteRCE(config: Config): Plugin {
     },
     // 3.
     async transform(code, id) {
-      if (src_js(id)) {
+      if (is_src_file(id)) {
         // filter only jsx/tsx file
         print('transform;y', id);
         // parser(id, code)

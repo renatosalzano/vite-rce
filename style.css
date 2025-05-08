@@ -1,3 +1,12 @@
 div {
   display: block;
 }
+
+.flex {
+  display: flex;
+  gap: 8px;
+}
+
+.flex.column {
+  flex-direction: column;
+}

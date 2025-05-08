@@ -1,288 +1,233 @@
-import {
-  GET_VALUE,
-} from "../constant";
+// plugin-rce/constant.ts
+var CONFIG_ID = "$";
+var HOOK_START = "$";
+var STATE = `${HOOK_START}state`;
+var TEMPLATE_CONDITIONAL_EXPRESSION = `${CONFIG_ID}.ce`;
+var GET_VALUE = "v";
+var CREATE_REACTIVE_VALUE = "r";
 
-import type { Config } from "@rce/client/createConfig";
+// plugin-rce/client/createConfig.ts
+var REACTIVE = Symbol("react");
+function createConfig(element_name, props) {
+  const $ = {
+    element_name,
+    props,
+    state_map: [],
+    state(value) {
+      const index = $.state_map.length;
+      $.state_map[index] = {
+        value,
+        index,
+        $$type: REACTIVE
+      };
+      return $.state_map[index];
+    },
+    is_state(value) {
+      if (typeof value == "object" && value?.$$type == REACTIVE) return true;
+      return false;
+    },
+    get_state(value) {
+      return value.value;
+    },
+    set_state(state, value) {
+      $.state_map[state.index].value = value;
+    },
+    create_state(value) {
+      return {
+        value,
+        $$type: REACTIVE
+      };
+    },
+    get(...getters) {
+      return getters.map((getter) => {
+        if ($.is_state(getter)) {
+          return $.get_state(getter);
+        }
+        return getter;
+      });
+    },
+    set(setters, getters) {
+      let index = 0;
+      for (const setter of setters) {
+        if ($.is_state(setter)) {
+          $.set_state(setter, getters[index]);
+        }
+        index++;
+      }
+    },
+    [GET_VALUE](value) {
+      if ($.is_state(value)) {
+        return $.get_state(value);
+      }
+      return value;
+    },
+    [CREATE_REACTIVE_VALUE](value) {
+      return {
+        value,
+        $$type: REACTIVE
+      };
+    }
+  };
+  return $;
+}
+var createConfig_default = createConfig;
 
-function defineElement(name: string, component: (props: any) => Config) {
-
-  const instances = new WeakMap<HTMLElement, {
-    config: Config,
-    template: Template,
-  }>();
-
-  console.log('define', name)
-
+// plugin-rce/client/defineElement.ts
+function defineElement(name, component) {
+  const instances = /* @__PURE__ */ new WeakMap();
+  console.log("define", name);
   window.customElements.define(
     name,
     class extends HTMLElement {
-
       constructor() {
         super();
-
         const config = component({});
-
-        // console.log(config)
-
         const template = new Template(config);
-
         template.init();
-
         instances.set(this, { config, template });
-
       }
-
       connectedCallback() {
-        console.log('mounted');
-
+        console.log("mounted");
         const { template } = instances.get(this);
-
         template.append(this);
-        // template.append(this);
-        // const html = self.render(self.h);
-        // console.log(self.elements);
-        // console.log(self.element_list)
-        // self.is_mounted = true;
-
-
-        // // console.log(html)
-
-        // append(this, html as any);
-
       }
-
-      setProps(props: { [key: string]: any }): void {
-
+      setProps(props) {
       }
     }
-  )
+  );
 }
-
-
-type AnyObject = {
-  [key: string]: any;
-}
-
-//#region Template
-
-class Template {
-
+var Template = class {
   // mutations = new Mutations();
-  $ = {} as Config;
-
+  $ = {};
   cache = new Cache(this);
-
   // cached = new Map<number, (HTMLElement | ConditionalTemplate | ListTemplate)>();
   // element_checked = new Set<number>();
-
-  constructor(config: Config) {
+  constructor(config) {
     this.$ = config;
   }
-
   init = () => {
     this.cache.start();
     this.$.render(this.init_cache);
-
-    // console.log(this.cache)
-
-  }
-
-  init_cache = (tag: string, props: AnyObject, ...children: any[]) => {
-
+  };
+  init_cache = (tag, props, ...children) => {
     switch (tag) {
       case "$if":
       case "$ternary":
-        // console.log(tag, props, children)
-        this.cache.set(new ConditionalTemplate(this.$, props as any, children[0]))
+        this.cache.set(new ConditionalTemplate(this.$, props, children[0]));
         return;
       case "$for":
-        this.cache.set(new ListTemplate(this.$, props as any, children[0]))
+        this.cache.set(new ListTemplate(this.$, props, children[0]));
         return;
     }
-
     this.check_mutations(props, children);
     this.cache.next();
-  }
-
-  check_mutations(props: AnyObject, children: any[]) {
-
-    // ATTRIBUTES
-    // for (const attr_name in props) {
-    //   if (attr_name.startsWith('on')) return;
-    //   const attr_value = props[attr_name];
-    // }
-
-    // TEXT NODE
+  };
+  check_mutations(props, children) {
     let node_index = 0;
     for (const child of children) {
-
       if (this.$.is_state(child)) {
-        this.cache.mutation({ type: 'text_node', node_index });
+        this.cache.mutation({ type: "text_node", node_index });
       }
-
       node_index++;
     }
-
     this.cache.mutations_is_checked();
   }
-
-
   // cache = (element: HTMLElement | ConditionalTemplate | ListTemplate) => {
   //   this.cached.set(this.index, element);
   //   this.index++;
   // }
-
   // #region Hidrate
-  h = (tag: string, props: AnyObject, ...children: any[]) => {
-
+  h = (tag, props, ...children) => {
     if (tag == this.$.element_name) {
       return children;
     }
-
-    // console.log(this.cache.index, tag)
-
     if (this.cache.has()) {
-
       const element = this.cache.get();
-
       if (is_directive(element)) {
-
         if (this.$.is_state(props)) {
           props = this.$.get_state(props);
         }
-
         const html = element.element(props);
-
-        console.log(tag, html)
-
+        console.log(tag, html);
         this.cache.next();
-
         return html;
       }
-
       if (this.cache.mutations_not_checked()) {
-        // console.log('check mutation')
         this.check_mutations(props, children);
       }
-
       if (this.cache.has_mutations()) {
         this.cache.apply_mutation(this.$, element, props, children);
       }
-
       this.cache.next();
-
       return element;
-
     } else {
-
       if (is_directive(tag)) {
-
-        const directive = tag == '$for'
-          ? new ListTemplate(this.$, props as any, children[0])
-          : new ConditionalTemplate(this.$, props as any, children[0]);
-
+        const directive = tag == "$for" ? new ListTemplate(this.$, props, children[0]) : new ConditionalTemplate(this.$, props, children[0]);
         this.cache.set(directive);
-
-        return directive.element(props as any);
+        return directive.element(props);
       }
-
       return this.create_element(tag, props, children);
     }
-  }
-
-  create_element = (tag: string, props: AnyObject, children: HTMLElement[]) => {
-
+  };
+  create_element = (tag, props, children) => {
     const element = document.createElement(tag);
-
     for (const [name, value] of Object.entries(props ?? {})) {
-
-      if (name.startsWith('on') && typeof value == 'function') {
-
+      if (name.startsWith("on") && typeof value == "function") {
         if (this.$.methods.has(value)) {
-          element[name] = (event: any) => { value(event); this.rerender(); };
+          element[name] = (event) => {
+            value(event);
+            this.rerender();
+          };
         } else {
           element[name] = value;
         }
-
       } else {
-        element.setAttribute(name, value as string);
+        element.setAttribute(name, value);
       }
     }
-
     for (const child of children) {
-
       if (this.$.is_state(child)) {
         element.append(this.$.get_state(child));
       } else {
-        element.append(child)
+        element.append(child);
       }
-
     }
-
     this.cache.set(element);
-
     return element;
-  }
-
-
-  append = (root: HTMLElement) => {
+  };
+  append = (root) => {
     this.cache.start();
-    const elements = this.$.render(this.h) as HTMLElement[];
-
+    const elements = this.$.render(this.h);
     for (const element of elements) {
       root.append(element);
     }
-
-  }
-
+  };
   rerender = () => {
     this.cache.start();
     this.$.render(this.h);
-    // console.log('rerender', this.cache)
-  }
-
-}
-
-//#endregion
-//#region ConditionalTemplate
-
-type ConditionalTypes = '$if' | '$for';
-
-class ConditionalTemplate extends Template {
-
-  type: ConditionalTypes;
-  target: HTMLElement | Comment;
-
-  condition: boolean;
-  placeholder: Comment;
-  render: (h: Function) => any;
-
-  constructor($: Config, condition: boolean, render: any) {
+  };
+};
+var ConditionalTemplate = class extends Template {
+  type;
+  target;
+  condition;
+  placeholder;
+  render;
+  constructor($, condition, render) {
     super($);
-
     this.render = render;
-
-    this.placeholder = document.createComment('$if');
+    this.placeholder = document.createComment("$if");
     this.target = this.placeholder;
     this.condition = condition;
-
     this.cache.start();
-
     this.render(this.init_cache);
   }
-
-  element = (condition: boolean) => {
-
+  element = (condition) => {
     this.cache.start();
-
     const html = this.render(this.h);
-
-    console.dir(html)
-
+    console.dir(html);
     if (this.condition != condition) {
-
       this.condition = condition;
-
       if (condition) {
         this.target.replaceWith(html);
         this.target = html;
@@ -291,237 +236,149 @@ class ConditionalTemplate extends Template {
         this.target = this.placeholder;
       }
     }
-
     return this.target;
-  }
-
-}
-
-//#endregion
-//#region ListTemplate
-
-type ListRender = (h: Function, item?: any, index?: number, array?: any[]) => HTMLElement;
-
-class ListTemplate extends Template {
-
-  node_list = new Map<number, HTMLElement | Comment>();
-
-  placeholder: Comment;
-  render: ListRender;
-
-  fragment: DocumentFragment;
+  };
+};
+var ListTemplate = class extends Template {
+  node_list = /* @__PURE__ */ new Map();
+  placeholder;
+  render;
+  fragment;
   first_render = true;
-
-  constructor($: Config, array: any[], render: ListRender) {
+  constructor($, array, render) {
     super($);
-
     this.render = render;
-
-    this.placeholder = document.createComment('$for');
-
-    const item = this.$.is_state(array)
-      ? this.$.create_state(array[0])
-      : array[0]
-
+    this.placeholder = document.createComment("$for");
+    const item = this.$.is_state(array) ? this.$.create_state(array[0]) : array[0];
     this.cache.start();
     this.render(this.init_cache, item, 0, array);
-
     this.node_list.set(0, this.placeholder);
-
   }
-
-  element = (array: any[]) => {
-
+  element = (array) => {
     const fragment = new DocumentFragment();
-
     const max_index = Math.max(array.length, this.node_list.size);
-    let last_element: HTMLElement | Comment = this.node_list.get(0);
-
+    let last_element = this.node_list.get(0);
     this.cache.start_list();
-
     for (let index = 0; index < max_index; index++) {
-
       if (index < array.length) {
-
         const item = array[index];
-
-        this.cache.start()
+        this.cache.start();
         const element = this.render(this.h, item, index, array);
-
         if (this.node_list.has(index)) {
-
           const dom_element = this.node_list.get(index);
-
           if (!dom_element.isEqualNode(element)) {
-            // replace element
             dom_element.replaceWith(element);
             this.node_list.set(index, element);
-
             last_element = element;
           } else {
-            // keep element
             last_element = dom_element;
           }
-
         } else {
-          // add element
           this.node_list.set(index, element);
           last_element.after(element);
           last_element = element;
         }
-
         if (this.first_render) {
           fragment.append(last_element);
         }
-
       } else {
-        // remove element from DOM
-
         if (this.node_list.size == 1) {
-
           this.node_list.get(0).replaceWith(this.placeholder);
           this.node_list.set(0, this.placeholder);
         } else {
-
           this.node_list.get(index).remove();
-          this.node_list.delete(index)
+          this.node_list.delete(index);
         }
       }
-
       this.cache.next(true);
-    } // end for
-
+    }
     if (this.first_render) {
       this.first_render = false;
       return fragment;
     }
-
+  };
+  update_item() {
   }
-
-
-  update_item() { }
-
-}
-
-//#endregion
-//#region Cache 
-
-class Cache {
-
-  cached = new Map<number, any>();
+};
+var Cache = class {
+  cached = /* @__PURE__ */ new Map();
   mutations = new Mutations();
-  mutations_checked = new Set<number>();
-
+  mutations_checked = /* @__PURE__ */ new Set();
   cache_list = false;
-
   index = 0;
   list_index = 0;
-
-  constructor(instance?: Template) {
+  constructor(instance) {
     this.cache_list = instance instanceof ListTemplate;
   }
-
-  set = (element: any) => {
-
+  set = (element) => {
     if (this.cache_list) {
-
       const cached = this.cached_list();
-
       cached.set(this.index, element);
       this.index++;
       return;
     }
-
     this.cached.set(this.index, element);
     this.index++;
-  }
-
+  };
   next = (list_index = false) => {
-
     if (list_index) {
       this.list_index++;
     } else {
       this.index++;
     }
-  }
-
+  };
   has = () => {
-
     if (this.cache_list) {
-
       const cached = this.cached_list();
-      return cached.has(this.index)
+      return cached.has(this.index);
     }
-
     return this.cached.has(this.index);
-  }
-
+  };
   get = () => {
-
     if (this.cache_list) {
-
       const cached = this.cached_list();
-      return cached.get(this.index)
+      return cached.get(this.index);
     }
-
     return this.cached.get(this.index);
-  }
-
+  };
   start = () => {
     this.index = 0;
-  }
-
+  };
   start_list = () => {
     this.list_index = 0;
-  }
-
-  set_list_index = (index: number) => {
+  };
+  set_list_index = (index) => {
     this.list_index = index;
-  }
-
+  };
   cached_list = () => {
-
     if (!this.cached.has(this.list_index)) {
-      this.cached.set(this.list_index, new Map())
+      this.cached.set(this.list_index, /* @__PURE__ */ new Map());
     }
-
     return this.cached.get(this.list_index);
-  }
-
+  };
   clear_list = () => {
-
     if (this.cached.has(this.list_index)) {
-      this.cached.delete(this.list_index)
+      this.cached.delete(this.list_index);
     }
-  }
-
+  };
   mutations_is_checked = () => {
     this.mutations_checked.add(this.index);
-  }
-
+  };
   mutations_not_checked = () => {
     return !this.mutations_checked.has(this.index);
-  }
-
+  };
   has_mutations = () => {
     return this.mutations.has(this.index);
-  }
-
+  };
   get_mutations = () => {
     return this.mutations.get(this.index);
-  }
-
-  mutation = (mutation: MutationList[number]) => {
+  };
+  mutation = (mutation) => {
     this.mutations.set(this.index, mutation);
-  }
-
-  apply_mutation = ($: Config, element: HTMLElement, props: AnyObject, child_nodes: any[]) => {
-
-    // console.log('apply mutation', element)
+  };
+  apply_mutation = ($, element, props, child_nodes) => {
     for (const mutation of this.mutations.get(this.index)) {
-
       switch (mutation.type) {
-
         case "text_node": {
           const value = $[GET_VALUE](child_nodes[mutation.node_index]);
           if (element.childNodes[mutation.node_index].textContent != value) {
@@ -529,64 +386,39 @@ class Cache {
           }
           break;
         }
-
       }
-
     }
-  }
-
-}
-
-
-type MutationList = (
-  {
-    type: 'text_node';
-    node_index: number;
-  }
-  | {
-    type: 'attribute';
-    node_index: number;
-  }
-)[]
-
-class Mutations {
-
-  private mutations = new Map<number, MutationList>()
-
-  set(index: number, mutation: MutationList[number]) {
-
+  };
+};
+var Mutations = class {
+  mutations = /* @__PURE__ */ new Map();
+  set(index, mutation) {
     if (this.mutations.has(index)) {
-      this.mutations.get(index).push(mutation)
+      this.mutations.get(index).push(mutation);
     } else {
-      this.mutations.set(index, [mutation])
+      this.mutations.set(index, [mutation]);
     }
   }
-
-  has(index: number) {
-    return this.mutations.has(index)
+  has(index) {
+    return this.mutations.has(index);
   }
-
-  get(index: number) {
-    return this.mutations.get(index)
+  get(index) {
+    return this.mutations.get(index);
   }
-}
-
-//#endregion
-
-function is_directive(element: any) {
-
-  if (typeof element == 'string') {
-
+};
+function is_directive(element) {
+  if (typeof element == "string") {
     switch (element) {
-      case '$if':
-      case '$ternary':
-      case '$for':
+      case "$if":
+      case "$ternary":
+      case "$for":
         return true;
     }
   }
-
   return element instanceof ConditionalTemplate || element instanceof ListTemplate;
 }
-
-
-export default defineElement;
+var defineElement_default = defineElement;
+export {
+  createConfig_default as createConfig,
+  defineElement_default as defineElement
+};

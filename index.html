@@ -12,8 +12,37 @@
   <my-component></my-component>
   <test-component></test-component>
   <!-- <my-component></my-component> -->
+  <div id="test"></div>
   <script type="module" src="/src/index.js"></script>
   <script>
+    const test = document.querySelector('#test');
+    const fragment = document.createDocumentFragment();
+
+    function div() {
+      const e = document.createElement('div');
+      e.textContent = 'item';
+      return e;
+    }
+
+    fragment.append(div())
+    fragment.append(div())
+    fragment.append(div())
+    fragment.append(div())
+    console.log(fragment)
+
+    // test.append(fragment)
+
+
+    // test.replaceWith(fragment)
+
+    // console.log(fragment)
+
+    // test.append(fragment);
+
+    setTimeout(() => {
+
+
+    }, 1000)
     // const test = document.querySelector('my-component');
     // console.log(test);
     // test.setProps()

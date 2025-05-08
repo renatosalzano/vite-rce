@@ -1,5 +1,5 @@
 import { type FunctionNode, return_keys } from "../acorn";
-import { CONFIG_ID } from "../constant";
+import { CONFIG_ID } from "../../constant";
 import transform_body from "./function_body";
 import transform_jsx from "./jsx";
 import { Code } from "..";

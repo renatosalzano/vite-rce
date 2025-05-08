@@ -1,5 +1,5 @@
-import { createConfig, defineElement } from '/rce/client';
-import { $state } from "rce";
+import { createConfig, defineElement } from '@rce/dev';
+import { $state } from "@rce";
 function Test() {
 const $ = createConfig('test-component', );
   let counter = $.state(0);

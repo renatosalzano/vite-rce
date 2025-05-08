@@ -21,6 +21,7 @@ async function transform(id: string, source_code: string) {
     })).code;
 
     // print(code)
+    writeFile(resolve(__dirname, `../.local/esbuild_${parse(id).name}.js`), source_code, 'utf-8')
 
     const code = new Code(source_code);
 
@@ -29,7 +30,7 @@ async function transform(id: string, source_code: string) {
     // TRANSFORM CODE
 
 
-    code.insert(0, "import { createConfig, defineElement } from '/rce/client';\n");
+    code.insert(0, "import { createConfig, defineElement } from '@rce/dev';\n");
 
 
     for (const node of nodes) {
@@ -49,8 +50,6 @@ async function transform(id: string, source_code: string) {
     const res = code.commit();
 
     writeFile(resolve(__dirname, `../.local/${parse(id).name}.js`), res, 'utf-8')
-
-    // return source_code
     return res;
 
   } catch (err) {

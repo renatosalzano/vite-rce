@@ -1,6 +1,6 @@
 import { acorn, type FunctionNode, type FunctionBody, return_keys, walk, recursive, ancestor, AnyNode } from "../acorn";
+import { CONFIG_ID, HOOK_START, STATE } from "../../constant";
 import { Code } from "..";
-import { HOOK_START, STATE, CONFIG_ID } from "../constant";
 import { print } from "../../utils/shortcode";
 
 function transform_body(fn_node: FunctionNode, code: Code) {

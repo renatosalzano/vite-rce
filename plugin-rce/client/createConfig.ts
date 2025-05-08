@@ -1,28 +1,9 @@
-// import { $state } from "rce";
+import { CREATE_REACTIVE_VALUE, GET_VALUE } from "../constant";
 
-const STATE = Symbol('state');
+const REACTIVE = Symbol('react');
 
 function createConfig(element_name: string, props: { [key: string]: any }) {
 
-  function check_value_type(value: any) {
-    if (value?.constructor) {
-
-      switch (value.constructor) {
-        case Object:
-          return value;
-        case Array:
-          return value.map((item: any, index: number) => ({
-            value: item,
-            index,
-            $$type: STATE
-          }))
-
-      }
-
-    }
-
-    return value;
-  }
 
   const $ = {
     element_name,
@@ -37,26 +18,19 @@ function createConfig(element_name: string, props: { [key: string]: any }) {
       $.state_map[index] = {
         value,
         index,
-        $$type: STATE
+        $$type: REACTIVE
       }
 
       return $.state_map[index];
     },
 
     is_state(value: any) {
-      if (typeof value == 'object' && value?.$$type == STATE) return true;
+      if (typeof value == 'object' && value?.$$type == REACTIVE) return true;
       return false;
     },
 
     get_state(value: any) {
       return value.value;
-    },
-
-    get_value(value: any) {
-      if ($.is_state(value)) {
-        return $.get_state(value);
-      }
-      return value;
     },
 
     set_state(state: any, value: any) {
@@ -67,7 +41,7 @@ function createConfig(element_name: string, props: { [key: string]: any }) {
 
       return {
         value,
-        $$type: STATE
+        $$type: REACTIVE
       }
     },
 
@@ -95,6 +69,20 @@ function createConfig(element_name: string, props: { [key: string]: any }) {
       }
 
       // console.log('new state', $.state_map)
+    },
+
+    [GET_VALUE](value: any) {
+      if ($.is_state(value)) {
+        return $.get_state(value);
+      }
+      return value;
+    },
+
+    [CREATE_REACTIVE_VALUE](value: any) {
+      return {
+        value,
+        $$type: REACTIVE
+      }
     }
   };
 
@@ -106,6 +94,7 @@ export type Config = ReturnType<typeof createConfig> & {
   methods: Set<Function>,
   render: (h: Function) => any;
 }
+
 
 
 export default createConfig;

@@ -1,4 +1,4 @@
-import { $state } from "rce";
+import { $state } from "@rce";
 
 function Test() {
   let counter = $state(0);
