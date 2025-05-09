@@ -1,16 +1,19 @@
 import * as acorn from "acorn";
-import { Expression, SpreadElement, ObjectExpression, AnyNode } from "acorn";
-import { simple, ancestor, recursive } from 'acorn-walk';
+import { AnyNode } from "acorn";
+import { HOOK_START } from "../constant";
+// import { simple, ancestor, recursive } from 'acorn-walk';
+
+export { acorn }
 
 export interface FunctionNode extends acorn.Function {
   tag_name?: string;
   caller_id?: string;
-  config_ID?: string;
-  type: 'FunctionDeclaration' | 'custom_element' | 'partial' | 'hook'
+  type: 'FunctionDeclaration' | 'custom_element' | 'partial' | 'hook';
   stateless?: boolean;
   arrow?: boolean;
+  params_start?: number;
   return_start?: number;
-  jsx?: FactoryNode;
+  jsx?: acorn.CallExpression;
   props?: Set<string>;
   props_type?: 'ObjectPattern' | 'Identifier';
   state?: Set<string>;
@@ -18,17 +21,22 @@ export interface FunctionNode extends acorn.Function {
   reactive_keys_reg?: RegExp
 }
 
-export type FunctionBody = acorn.BlockStatement | acorn.Expression;
-export type Node = acorn.Node;
-export type FactoryNode = acorn.CallExpression;
-export type {
-  Expression,
-  SpreadElement,
-  ObjectExpression,
-  AnyNode
+export function is_factory(node: acorn.AnyNode): node is acorn.CallExpression {
+  return node.type == 'CallExpression'
+    && node.callee.type == 'Identifier'
+    && node.callee.name == 'h';
 }
 
-function return_keys(node, output = new Set<string>()) {
+export function is_partial(node: acorn.CallExpression) {
+  return node.arguments[0]
+    && node.arguments[0].type == 'Identifier';
+}
+
+export function is_hook(node: acorn.AnyNode): node is acorn.Identifier {
+  return node.type == 'Identifier' && node.name.startsWith(HOOK_START);
+}
+
+export function return_keys(node, output = new Set<string>()) {
 
   // print(node)
   switch (node.type) {
@@ -86,7 +94,7 @@ type Visitors = {
 }
 
 
-function walk(node: AnyNode, visitors: Visitors) {
+export function walk(node: AnyNode, visitors: Visitors) {
   if (!node || typeof node.type !== 'string') {
     return; // Esci se il nodo non è valido
   }
@@ -115,13 +123,4 @@ function walk(node: AnyNode, visitors: Visitors) {
       }
     }
   }
-}
-
-
-export {
-  acorn,
-  return_keys,
-  walk,
-  ancestor,
-  recursive
 }

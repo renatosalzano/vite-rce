@@ -1,5 +1,5 @@
 import { Code } from "..";
-import { FunctionNode } from "../acorn";
+import { FunctionNode } from "../ast";
 import { CONFIG_ID } from "../../constant";;
 import transform_body from "./function_body";
 // import { print } from "../../utils/shortcode";

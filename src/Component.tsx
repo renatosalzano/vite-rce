@@ -61,28 +61,16 @@ export const Component = ({ title = 'hello rce' }) => {
       <h2>my component</h2>
       {/* <span {...props}>{counter}</span> */}
       {/* <strong class={'to do'}>counter is {counter} {counter} {counter}</strong> */}
-      <div class='flex column'>
+      {/* <div class='flex column'>
         <button onclick={toggle}>list: {show ? 'true' : 'false'}</button>
         <button onclick={add}>add</button>
         <button onclick={minus}>minus</button>
         <button onclick={test}>test</button>
 
-      </div>
+      </div> */}
 
       <Partial list={array} />
-      {/* {nil !== null && (<span>{nil}</span>)} */}
-      {/* {nil == null
-        ? null
-        : ((array || []).map((parent_index, _index, _arr) => (
-          <div>
-            item - {parent_index}
-          </div>
-        )))
-      } */}
 
-      {/* {array.map((i) => (<div>list item - {i}</div>))} */}
-      {/* {counter > 0 && (<div>if condition <div>counter is {other_counter}</div></div>)} */}
-      {/* {counter > 0 ? (<span>counter is greater than 0</span>) : (<span>counter is 0</span>)} */}
     </my-component>
   )
 }

@@ -26,5 +26,5 @@ export const Component = ({ title = "hello rce" }) => {
     array = array.map((i) => i + 1);
   }
   const props = {};
-  return /* @__PURE__ */ h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class: "flex column" }, /* @__PURE__ */ h("button", { onclick: toggle }, "list: ", show ? "true" : "false"), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus"), /* @__PURE__ */ h("button", { onclick: test }, "test")), /* @__PURE__ */ h(Partial, { list: array }));
+  return /* @__PURE__ */ h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h(Partial, { list: array }));
 };

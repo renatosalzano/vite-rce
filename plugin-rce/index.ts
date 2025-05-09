@@ -154,13 +154,14 @@ function viteRCE(config: Config): Plugin {
     // 1.
     resolveId(id, importer) {
 
-      print(id, importer)
+      // print(id, importer)
 
       if (id.startsWith('@rce') && is_src_file(importer)) {
-        if (id == '@rce/dev') {
-          return { id: '/rce/dev' }
-        }
-        return { id: '@rce/client/lib.ts' }
+        // if (id == '@rce/dev') {
+        //   return { id: '/rce/dev' }
+        // }
+
+        return { id: '/rce/dev' }
       }
 
       if (id.startsWith('@rce')) {
@@ -168,7 +169,7 @@ function viteRCE(config: Config): Plugin {
       }
 
       if (importer.startsWith('@rce')) {
-        print(posix.join(importer, id))
+        // print(posix.join(importer, id))
         return { id }
         // return { id: join(importer, id) }
       }
@@ -185,13 +186,13 @@ function viteRCE(config: Config): Plugin {
         return code;
       }
 
-      if (id.startsWith('@rce')) {
-        const path = './client/index.ts'
-        print('load;y', path)
-        let code = readFileSync(resolve(__dirname, path), 'utf-8');
-        return code
+      // if (id.startsWith('@rce')) {
+      //   const path = './client/index.ts'
+      //   print('load;y', path)
+      //   let code = readFileSync(resolve(__dirname, path), 'utf-8');
+      //   return code
 
-      }
+      // }
     },
     // 3.
     async transform(code, id) {

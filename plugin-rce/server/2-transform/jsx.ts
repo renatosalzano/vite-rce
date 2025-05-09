@@ -3,7 +3,8 @@ import {
   walk,
   FunctionNode,
   return_keys,
-} from "../acorn";
+  is_partial,
+} from "../ast";
 
 import { CONFIG_ID, CREATE_REACTIVE_VALUE, GET_VALUE } from "../../constant";
 
@@ -48,7 +49,17 @@ function transform_factory(h_node: acorn.AnyNode) {
   switch (h_node.type) {
     case "CallExpression": {
 
-      if (is_factory(h_node)) {
+      if (is_partial(h_node)) {
+
+        const [caller, props] = destructure_partial(h_node);
+
+        const partial_caller = caller.name;
+        const partial_props = code.slice(props.start, props.end);
+
+        code.replace(h_node, `${partial_caller}(${partial_props})`);
+
+      } else if (is_factory(h_node)) {
+
         const [, children] = destructure_factory(h_node);
 
         for (const child of children) {
@@ -56,6 +67,7 @@ function transform_factory(h_node: acorn.AnyNode) {
         }
 
         break;
+
 
       } else if (is_map(h_node)) {
         // print(node)
@@ -193,6 +205,14 @@ function transform_factory(h_node: acorn.AnyNode) {
 
 }
 
+
+function destructure_partial(node: acorn.CallExpression) {
+  const [caller, props] = node.arguments;
+  return [caller, props] as [
+    acorn.Identifier,
+    acorn.AnyNode
+  ]
+}
 
 function destructure_factory(node: acorn.CallExpression) {
   const [, attributes, ...children] = node.arguments as any;

@@ -1,4 +1,4 @@
-import { type FunctionNode, return_keys } from "../acorn";
+import { type FunctionNode, return_keys } from "../ast";
 import { CONFIG_ID, HYDRATE } from "../../constant";
 import transform_body from "./function_body";
 import transform_jsx from "./jsx";
@@ -69,6 +69,7 @@ function transform_custom_element(node: FunctionNode, code: Code) {
 
   code.insert(-1, `defineElement('${node.tag_name}', ${node.caller_id});\n`);
 }
+
 
 function parse_props(node: FunctionNode) {
 

@@ -1,4 +1,4 @@
-import { acorn, walk, type FunctionNode } from '../acorn';
+import { acorn, walk, type FunctionNode } from '../ast';
 // import { walk } from 'zimmerframe';
 // import { Node } from 'estree';
 import { HOOK_START } from "../../constant";
@@ -9,7 +9,6 @@ import { Code } from '..';
 let TAG_NAMES: Set<string>;
 let NODES: Set<FunctionNode>;
 
-const CONFIG_ID = '$$'
 
 function read(id: string, code: Code) {
 
@@ -65,7 +64,6 @@ function read(id: string, code: Code) {
               if (tag_name && is_custom_element(tag_name)) {
                 const fn_node = var_node.init as unknown as FunctionNode;
                 fn_node.tag_name = tag_name;
-                fn_node.config_ID = CONFIG_ID;
                 fn_node.start = node.start;
                 fn_node.end = node.end;
                 fn_node.stateless = true;
@@ -125,7 +123,6 @@ function read_function(node: FunctionNode, code: Code) {
         if (tag_name && is_custom_element(tag_name)) {
           is_ce = true;
           node.tag_name = tag_name;
-          node.config_ID = CONFIG_ID;
           node.type = 'custom_element';
           node.jsx = ret_node.argument;
           node.return_start = ret_node.start;

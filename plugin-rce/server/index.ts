@@ -1,11 +1,14 @@
 import { transformWithEsbuild } from 'vite';
 import { writeFile } from 'fs/promises';
-import { basename, extname, parse, resolve } from 'path';
-import { acorn } from './acorn.ts';
+import { extname, parse, resolve } from 'path';
+import { CONFIG_ID } from '../constant.ts';
+import { acorn } from './ast.ts';
 import read from './1-read/read.ts';
 import transform_custom_element from './2-transform/custom_element.ts';
 import transform_hook from './2-transform/hook.ts';
+import transform_jsx from './2-transform/jsx.ts';
 import { print } from '../utils/shortcode';
+import transform_partial from './2-transform/partial.ts';
 
 
 async function transform(id: string, source_code: string) {
@@ -37,14 +40,22 @@ async function transform(id: string, source_code: string) {
     for (const node of nodes) {
       switch (node.type) {
         case 'custom_element':
-          print('parse;y', node.tag_name, node.caller_id)
+          print('transform custom element;y', node.caller_id)
 
           transform_custom_element(node, code);
           // code.insert(-1, `${node.component_id}.html(${node.caller_id}({}));\n`)
-          break;
+          break
+        case 'partial': {
+
+          print('transform partial;y', node.caller_id)
+
+          transform_partial(node, code);
+
+          break
+        }
         case 'hook':
           transform_hook(node, code)
-          break;
+          break
       }
     }
 

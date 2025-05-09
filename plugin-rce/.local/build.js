@@ -429,7 +429,13 @@ function defineElement(name, component) {
   );
 }
 var defineElement_default = defineElement;
+
+// plugin-rce/client/hooks.ts
+function $state(init) {
+  return init;
+}
 export {
+  $state,
   Cache_default as Cache,
   ConditionalTemplate,
   ListTemplate,

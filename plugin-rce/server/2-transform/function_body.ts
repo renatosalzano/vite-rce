@@ -1,4 +1,4 @@
-import { acorn, type FunctionNode, type FunctionBody, return_keys, walk, recursive, ancestor, AnyNode } from "../acorn";
+import { acorn, type FunctionNode, return_keys, walk } from "../ast";
 import { CONFIG_ID, HOOK_START, STATE } from "../../constant";
 import { Code } from "..";
 import { print } from "../../utils/shortcode";
@@ -12,7 +12,7 @@ function transform_body(fn_node: FunctionNode, code: Code) {
 
     const reactive_keys = new Set<string>()
 
-    walk(fnode as AnyNode, {
+    walk(fnode as acorn.AnyNode, {
       Identifier(node) {
         if (fn_node.state.has(node.name)) {
           code.insert(node.start, '_')
