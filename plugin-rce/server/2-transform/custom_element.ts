@@ -1,5 +1,5 @@
 import { type FunctionNode, return_keys } from "../acorn";
-import { CONFIG_ID } from "../../constant";
+import { CONFIG_ID, HYDRATE } from "../../constant";
 import transform_body from "./function_body";
 import transform_jsx from "./jsx";
 import { Code } from "..";
@@ -36,13 +36,13 @@ function transform_custom_element(node: FunctionNode, code: Code) {
 
     // const replace = `(${component_id}.props(${_props_keys}), ${code.slice(node.body.start, node.body.end)})`
     code.insert(node.body.start, create_config)
-    code.insert(node.jsx.start, `\nreturn (${CONFIG_ID}.render = (h) =>`);
+    code.insert(node.jsx.start, `\nreturn (${CONFIG_ID}.${HYDRATE} = (h) =>`);
     code.insert(node.body.end, `,${CONFIG_ID})}`)
 
   } else {
     let index = code.find_index(node.body.start, "{");
     code.insert(index, create_config);
-    code.insert(node.jsx.start, `(${CONFIG_ID}.render = (h) =>`);
+    code.insert(node.jsx.start, `(${CONFIG_ID}.${HYDRATE} = (h) =>`);
     code.insert(node.jsx.end, `,${CONFIG_ID})`)
   }
 

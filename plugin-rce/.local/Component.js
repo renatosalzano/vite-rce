@@ -2,25 +2,26 @@ import { createConfig, defineElement } from '@rce/dev';
 import { $state } from "@rce";
 const $hook = ($) => 
 function $hook() {
-  let bool = $.state(false);
-  function method() {
-   let [_bool] = $.get(bool);
- console.log("working method");
-    _bool = !_bool;
+  let show = $.state(false);
+  function toggle() {
+   let [_show] = $.get(show);
+ _show = !_show;
 
- $.set([bool], [_bool]);
+ $.set([show], [_show]);
   }
   return {
-    bool,
-    method
+    show,
+    toggle
   };
 }
-function Partial() {
+function Partial(props) {
+  return /* @__PURE__ */ h("ul", null, props.list.map((i) => /* @__PURE__ */ h("li", null, "item ", i)));
 }
 export function Component({ title = "hello rce" }){
 const $ = createConfig('my-component', {title});
-  let show = $.state(false);
   let array = $.state([1, 2, 3]);
+  let state = $.state(true);
+  const { show, toggle } = $hook($)();
   function add() {
    let [_array] = $.get(array);
  _array.push(_array.length + 1);
@@ -33,19 +34,13 @@ const $ = createConfig('my-component', {title});
 
  $.set([array], [_array]);
   };
-  function test(i) {
-    console.log(`u click the number ${i}`);
-  }
-  function toggle_list() {
-   let [_show] = $.get(show);
- _show = !_show;
+  function test() {
+   let [_array] = $.get(array);
+ _array = _array.map((i) => i + 1);
 
- $.set([show], [_show]);
+ $.set([array], [_array]);
   }
   const props = {};
-  $.methods = new Set([add,minus,toggle_list]);
-return /* @__PURE__ */ ($.render = (h) =>h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class: "flex column" }, /* @__PURE__ */ h("button", { onclick: toggle_list }, "list: ", $.v(show) ? $.r("true") : $.r("false")), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus")), 
-h('$if',$.v(show),(h)=> 
-h('$for', array,((h,i) => /* @__PURE__ */ h("div", null, "list item - ", i))))),$);
+  return /* @__PURE__ */ ($.h = (h) =>h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class: "flex column" }, /* @__PURE__ */ h("button", { onclick: toggle }, "list: ", $.v(show) ? $.r("true") : $.r("false")), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus"), /* @__PURE__ */ h("button", { onclick: test }, "test")), /* @__PURE__ */ h(Partial, { list: array })),$);
 };
 defineElement('my-component', Component);

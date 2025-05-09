@@ -18,6 +18,7 @@ async function transform(id: string, source_code: string) {
       loader,
       jsx: 'transform',
       jsxFactory: 'h',
+      jsxFragment: '$.fragment'
     })).code;
 
     // print(code)

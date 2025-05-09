@@ -2,16 +2,15 @@ import { $state } from '@rce';
 
 
 function $hook() {
-  let bool = $state(false);
+  let show = $state(false);
 
-  function method() {
-    console.log('working method')
-    bool = !bool
+  function toggle() {
+    show = !show
   }
 
   return {
-    bool,
-    method
+    show,
+    toggle
   }
 
   // return (instance) => {
@@ -19,17 +18,26 @@ function $hook() {
 }
 
 
-function Partial() {
+function Partial(props: { list: Array<number> }) {
 
+  return (
+    <ul>
+      {props.list.map((i) => (
+        <li>item {i}</li>
+      ))}
+    </ul>
+  )
 }
 
 
 export const Component = ({ title = 'hello rce' }) => {
 
-  let show = $state(false)
+  // let show = $state(false)
   let array = $state([1, 2, 3])
 
-  // let [bool] = $hook()
+  let state = $state(true);
+
+  const { show, toggle } = $hook();
 
   function add() {
     array.push(array.length + 1)
@@ -39,14 +47,11 @@ export const Component = ({ title = 'hello rce' }) => {
     array.pop()
   }
 
-  function test(i: number) {
+  function test() {
 
-    console.log(`u click the number ${i}`)
+    array = array.map((i) => i + 1)
   }
 
-  function toggle_list() {
-    show = !show
-  }
 
 
   const props = {}
@@ -57,16 +62,14 @@ export const Component = ({ title = 'hello rce' }) => {
       {/* <span {...props}>{counter}</span> */}
       {/* <strong class={'to do'}>counter is {counter} {counter} {counter}</strong> */}
       <div class='flex column'>
-        <button onclick={toggle_list}>list: {show ? 'true' : 'false'}</button>
+        <button onclick={toggle}>list: {show ? 'true' : 'false'}</button>
         <button onclick={add}>add</button>
         <button onclick={minus}>minus</button>
+        <button onclick={test}>test</button>
 
       </div>
 
-
-      {show && array.map((i) => (
-        <div>list item - {i}</div>
-      ))}
+      <Partial list={array} />
       {/* {nil !== null && (<span>{nil}</span>)} */}
       {/* {nil == null
         ? null

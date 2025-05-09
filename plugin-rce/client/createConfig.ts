@@ -1,4 +1,4 @@
-import { CREATE_REACTIVE_VALUE, GET_VALUE } from "../constant";
+import { CREATE_REACTIVE_VALUE, GET_VALUE, HYDRATE } from "../constant";
 
 const REACTIVE = Symbol('react');
 
@@ -68,7 +68,9 @@ function createConfig(element_name: string, props: { [key: string]: any }) {
         index++;
       }
 
-      // console.log('new state', $.state_map)
+      // update template
+      $.update();
+
     },
 
     [GET_VALUE](value: any) {
@@ -83,7 +85,9 @@ function createConfig(element_name: string, props: { [key: string]: any }) {
         value,
         $$type: REACTIVE
       }
-    }
+    },
+
+    update: () => { }
   };
 
   return $;
@@ -92,7 +96,8 @@ function createConfig(element_name: string, props: { [key: string]: any }) {
 
 export type Config = ReturnType<typeof createConfig> & {
   methods: Set<Function>,
-  render: (h: Function) => any;
+  update: Function;
+  [HYDRATE]: (h: Function) => any;
 }
 
 

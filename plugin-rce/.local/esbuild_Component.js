@@ -1,32 +1,30 @@
 import { $state } from "@rce";
 function $hook() {
-  let bool = $state(false);
-  function method() {
-    console.log("working method");
-    bool = !bool;
+  let show = $state(false);
+  function toggle() {
+    show = !show;
   }
   return {
-    bool,
-    method
+    show,
+    toggle
   };
 }
-function Partial() {
+function Partial(props) {
+  return /* @__PURE__ */ h("ul", null, props.list.map((i) => /* @__PURE__ */ h("li", null, "item ", i)));
 }
 export const Component = ({ title = "hello rce" }) => {
-  let show = $state(false);
   let array = $state([1, 2, 3]);
+  let state = $state(true);
+  const { show, toggle } = $hook();
   function add() {
     array.push(array.length + 1);
   }
   const minus = () => {
     array.pop();
   };
-  function test(i) {
-    console.log(`u click the number ${i}`);
-  }
-  function toggle_list() {
-    show = !show;
+  function test() {
+    array = array.map((i) => i + 1);
   }
   const props = {};
-  return /* @__PURE__ */ h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class: "flex column" }, /* @__PURE__ */ h("button", { onclick: toggle_list }, "list: ", show ? "true" : "false"), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus")), show && array.map((i) => /* @__PURE__ */ h("div", null, "list item - ", i)));
+  return /* @__PURE__ */ h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class: "flex column" }, /* @__PURE__ */ h("button", { onclick: toggle }, "list: ", show ? "true" : "false"), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus"), /* @__PURE__ */ h("button", { onclick: test }, "test")), /* @__PURE__ */ h(Partial, { list: array }));
 };
