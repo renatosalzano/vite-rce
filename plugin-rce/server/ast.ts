@@ -33,7 +33,25 @@ export function is_partial(node: acorn.CallExpression) {
 }
 
 export function is_hook(node: acorn.AnyNode): node is acorn.Identifier {
-  return node.type == 'Identifier' && node.name.startsWith(HOOK_START);
+  return node.type == 'Identifier'
+    && node.name.startsWith(HOOK_START);
+}
+
+export function is_block_statement(node: acorn.Function['body']): node is acorn.BlockStatement {
+  return node.type == 'BlockStatement';
+}
+
+export function has_return(node: acorn.BlockStatement) {
+  return node.body.at(-1).type == 'ReturnStatement';
+}
+
+export type ReactiveNode = acorn.BlockStatement & {
+  state: Set<string>,
+}
+
+export function reactive_node(node: any): ReactiveNode {
+  node.state = new Set<string>()
+  return node;
 }
 
 export function return_keys(node, output = new Set<string>()) {

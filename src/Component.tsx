@@ -17,8 +17,26 @@ function $hook() {
   // }
 }
 
+const $hook2 = () => {
 
-function Partial(props: { list: Array<number> }) {
+  let test = $state(false);
+
+  return {
+    test
+  }
+}
+
+const $invalid_hook = () => null;
+
+
+function $delete_me() {
+
+}
+
+// const $hook = ($) => (...props) => {}
+
+
+const Partial = (props: { list: Array<number> }) => {
 
   return (
     <ul>

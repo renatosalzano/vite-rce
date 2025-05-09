@@ -1,9 +1,11 @@
-import { acorn, walk, type FunctionNode } from '../ast';
+import { acorn, has_return, is_block_statement, is_hook, walk, type FunctionNode } from '../ast';
 // import { walk } from 'zimmerframe';
 // import { Node } from 'estree';
 import { HOOK_START } from "../../constant";
 import { print } from '../../utils/shortcode';
 import { Code } from '..';
+import { transform_hook_declaration } from '../2-transform/hook_declaration';
+import Transformer from '../Transformer';
 
 
 let TAG_NAMES: Set<string>;
@@ -25,11 +27,22 @@ function read(id: string, code: Code) {
 
     FunctionDeclaration(node: FunctionNode) {
       // print(node.id?.name + ';r')
-      if (node.id?.type == 'Identifier' && node.id.name.startsWith(HOOK_START)) {
-        node.type = 'hook';
-        node.caller_id = node.id.name;
+      if (is_hook(node.id) && is_block_statement(node.body)) {
 
-        NODES.add(node);
+        if (has_return(node.body)) {
+
+          transform_hook_declaration({
+            id: node.id.name,
+            fn_node: node
+          });
+
+        } else {
+          // invalid || usless hook
+          print('invalid', node.id.name)
+          Transformer.replace(node, '');
+
+        }
+
       } else {
 
         read_function(node, code)
@@ -41,23 +54,38 @@ function read(id: string, code: Code) {
 
         if (!var_node.init) continue;
 
+        // print(code.node_string(var_node.init))
+
         switch (var_node.init.type) {
           case "ArrowFunctionExpression":
           case "FunctionExpression":
 
-            if (var_node.id.type == 'Identifier' && var_node.id.name.startsWith(HOOK_START)) {
+            if (is_hook(var_node.id)) {
 
-              const hook_node: any = var_node.init;
-              hook_node.type = 'hook';
-              hook_node.arrow = true;
-              hook_node.caller_id = var_node.id.name;
-              hook_node.start = var_node.init.start;
+              if (is_block_statement(var_node.init.body) && has_return(var_node.init.body)) {
 
-              NODES.add(hook_node);
+                transform_hook_declaration({
+                  id: var_node.id.name,
+                  fn_node: var_node.init,
+                  is_var: true
+                });
+
+              } else {
+                print('invalid', var_node.id.name)
+
+                Transformer.replace(node, '');
+              }
+
+
+
               continue;
             }
 
+            print(var_node.init.body.type)
+
             if (var_node.init.body.type == 'CallExpression') {
+
+              print(code.node_string(var_node.init))
 
               const tag_name = get_tag_name(var_node.init.body);
 
@@ -147,6 +175,9 @@ function read_function(node: FunctionNode, code: Code) {
   })
 
 }
+
+
+function read_body() { }
 
 
 function get_tag_name(node: acorn.CallExpression) {

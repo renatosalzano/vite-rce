@@ -9,9 +9,16 @@ function $hook() {
     toggle
   };
 }
-function Partial(props) {
+const $hook2 = () => {
+  let test = $state(false);
+  return {
+    test
+  };
+};
+const $invalid_hook = () => null;
+const Partial = (props) => {
   return /* @__PURE__ */ h("ul", null, props.list.map((i) => /* @__PURE__ */ h("li", null, "item ", i)));
-}
+};
 export const Component = ({ title = "hello rce" }) => {
   let array = $state([1, 2, 3]);
   let state = $state(true);

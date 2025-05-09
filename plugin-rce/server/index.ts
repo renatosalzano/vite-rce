@@ -9,6 +9,7 @@ import transform_hook from './2-transform/hook.ts';
 import transform_jsx from './2-transform/jsx.ts';
 import { print } from '../utils/shortcode';
 import transform_partial from './2-transform/partial.ts';
+import Transformer from './Transformer.ts';
 
 
 async function transform(id: string, source_code: string) {
@@ -25,7 +26,9 @@ async function transform(id: string, source_code: string) {
     })).code;
 
     // print(code)
-    writeFile(resolve(__dirname, `../.local/esbuild_${parse(id).name}.js`), source_code, 'utf-8')
+    writeFile(resolve(__dirname, `../.local/esbuild_${parse(id).name}.js`), source_code, 'utf-8');
+
+    new Transformer(source_code);
 
     const code = new Code(source_code);
 
@@ -59,9 +62,11 @@ async function transform(id: string, source_code: string) {
       }
     }
 
+
+
     const res = code.commit();
 
-    writeFile(resolve(__dirname, `../.local/${parse(id).name}.js`), res, 'utf-8')
+    writeFile(resolve(__dirname, `../.local/${parse(id).name}.js`), Transformer.commit(), 'utf-8')
     return res;
 
   } catch (err) {
