@@ -1,3 +1,10 @@
+// plugin-rce/client/register.ts
+var cache = /* @__PURE__ */ new WeakMap();
+function register(custom_element, name) {
+  cache.set(custom_element, name);
+}
+var register_default = register;
+
 // plugin-rce/constant.ts
 var CONFIG_ID = "$";
 var HOOK_START = "$";
@@ -441,5 +448,6 @@ export {
   ListTemplate,
   Template2 as Template,
   createConfig_default as createConfig,
-  defineElement_default as defineElement
+  defineElement_default as defineElement,
+  register_default as register
 };

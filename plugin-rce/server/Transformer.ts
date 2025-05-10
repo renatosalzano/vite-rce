@@ -65,12 +65,35 @@ class Transformer {
     this.instance.sorted_push({ start, end, code });
   }
 
+  static wrap({ start, end }: { start: number, end: number } | acorn.Node, code_start: string, code_end: string) {
+    this.instance.sorted_push({ start, code: code_start });
+    this.instance.sorted_push({ start: end, code: code_end });
+  }
+
   static print_node(node: acorn.Node) {
     console.log(this.instance.source.slice(node.start, node.end))
   }
 
+  static node(node: acorn.Node) {
+    return this.instance.source.slice(node.start, node.end)
+  }
+
   static log() {
     console.log(this.instance.mods)
+  }
+
+  static index_from(from: number, substring: string) {
+    for (let i = from; i < this.instance.source.length - 1; i++) {
+      if (this.instance.source[i] == substring[0]) {
+
+        const _substring = this.instance.source.slice(i, i + substring.length);
+
+        console.log(_substring)
+        if (_substring == substring) {
+          return i;
+        }
+      }
+    }
   }
 
   static slice(start: number, end: number) {

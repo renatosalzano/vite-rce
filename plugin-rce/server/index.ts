@@ -1,15 +1,17 @@
 import { transformWithEsbuild } from 'vite';
 import { writeFile } from 'fs/promises';
 import { extname, parse, resolve } from 'path';
-import { CONFIG_ID } from '../constant.ts';
-import { acorn } from './ast.ts';
-import read from './1-read/read.ts';
-import transform_custom_element from './2-transform/custom_element.ts';
-import transform_hook from './2-transform/hook.ts';
+import { CONFIG_ID, HYDRATE } from '../constant.ts';
+import { acorn, get_tag_name, has_return, is_block_statement, is_factory, is_hook, reactive_node, walk } from './ast.ts';
+import parse_body_return from './1-parse/body_return.ts';
+import parse_props from './1-parse/props.ts';
 import transform_jsx from './2-transform/jsx.ts';
-import { print } from '../utils/shortcode';
 import transform_partial from './2-transform/partial.ts';
 import Transformer from './Transformer.ts';
+import { transform_hook_declaration } from './2-transform/hook_declaration.ts';
+import { print } from '../utils/shortcode';
+import transform_custom_element from './2-transform/custom_element.ts';
+import { is_custom_element } from './utils.ts';
 
 
 async function transform(id: string, source_code: string) {
@@ -30,143 +32,165 @@ async function transform(id: string, source_code: string) {
 
     new Transformer(source_code);
 
-    const code = new Code(source_code);
+    Transformer.insert(0, `import { create, defineComponent } from '@rce/dev';\n`)
 
-    const nodes = read(id, code);
+    const ast = acorn.parse(source_code, {
+      sourceType: 'module',
+      ecmaVersion: 'latest',
+      locations: true
+    });
 
-    // TRANSFORM CODE
+    walk(ast, {
 
+      FunctionDeclaration(node) {
+        // print(node.id?.name + ';r')
+        if (is_hook(node.id) && is_block_statement(node.body)) {
 
-    code.insert(0, "import { createConfig, defineElement } from '@rce/dev';\n");
+          if (has_return(node.body)) {
 
+            transform_hook_declaration({
+              id: node.id.name,
+              fn_node: node
+            });
 
-    for (const node of nodes) {
-      switch (node.type) {
-        case 'custom_element':
-          print('transform custom element;y', node.caller_id)
+          } else {
+            // invalid || usless hook
+            Transformer.replace(node, '');
 
-          transform_custom_element(node, code);
-          // code.insert(-1, `${node.component_id}.html(${node.caller_id}({}));\n`)
-          break
-        case 'partial': {
+          }
 
-          print('transform partial;y', node.caller_id)
+        } else {
 
-          transform_partial(node, code);
+          //#region CE STATELESS
 
-          break
+          const {
+            type,
+            tag_name,
+            jsx_node
+          } = parse_body_return(node.body);
+
+          if (type) {
+            const { props, props_string } = parse_props(node.params);
+
+            const $node = reactive_node(node.body);
+            $node.props = props;
+            $node.props_string = props_string;
+
+            if (type == 'custom_element') {
+
+              transform_custom_element($node, tag_name, jsx_node);
+            }
+          }
+
+          // read_function(node, code)
         }
-        case 'hook':
-          transform_hook(node, code)
-          break
+      },
+
+      VariableDeclaration(node) {
+        for (const var_node of node.declarations) {
+
+          if (!var_node.init) continue;
+
+          // print(code.node_string(var_node.init))
+
+          switch (var_node.init.type) {
+            case "ArrowFunctionExpression":
+            case "FunctionExpression":
+
+              if (is_hook(var_node.id)) {
+
+                if (is_block_statement(var_node.init.body) && has_return(var_node.init.body)) {
+
+                  transform_hook_declaration({
+                    id: var_node.id.name,
+                    fn_node: var_node.init,
+                    is_var: true
+                  });
+
+                } else {
+                  print('invalid hook;r', var_node.id.name)
+
+                  Transformer.replace(node, '');
+                }
+
+                continue;
+              }
+
+
+              if (is_factory(var_node.init.body)) {
+
+                // statless component
+
+                const tag_name = get_tag_name(var_node.init.body);
+
+                if (tag_name && is_custom_element(tag_name)) {
+
+                  print('tranform custom element;y', tag_name);
+
+                  const { props, props_string } = parse_props(var_node.init.params);
+
+                  Transformer.wrap(
+                    var_node.init.body,
+                    `{\n const ${CONFIG_ID} = create(${props_string}, '${tag_name}');\n return ${CONFIG_ID}.${HYDRATE} = (h) =>`,
+                    `, ${CONFIG_ID}\n}`
+                  )
+
+                  const $node = reactive_node({});
+                  $node.props = props;
+
+                  transform_jsx($node, var_node.init.body);
+
+                } else {
+                  // COMPONENT
+                }
+
+                break;
+              }
+
+              if (is_block_statement(var_node.init.body)) {
+
+                // read_function_body(var_node.init.body);
+                const {
+                  type,
+                  tag_name,
+                  jsx_node
+                } = parse_body_return(var_node.init.body);
+
+                if (type) {
+                  const { props, props_string } = parse_props(var_node.init.params);
+
+                  const node = reactive_node(var_node.init.body);
+
+                  node.props = props;
+                  node.props_string = props_string;
+
+                  if (type == 'custom_element') {
+
+                    transform_custom_element(node, tag_name, jsx_node);
+
+                  } else {
+
+                    // COMPONENT
+
+                  }
+
+                }
+
+              }
+
+          }
+        }
       }
-    }
+    })
 
 
-
-    const res = code.commit();
 
     writeFile(resolve(__dirname, `../.local/${parse(id).name}.js`), Transformer.commit(), 'utf-8')
-    return res;
+    return source_code;
 
   } catch (err) {
     console.log(err);
 
-  }
-}
-
-type CodeChange = { start: number, end?: number, code: string };
-
-
-export class Code {
-
-  private changes: CodeChange[] = [];
-
-  constructor(
-    public source: string,
-  ) {
-  }
-
-  private sorted_push(change: CodeChange) {
-
-    // print(change)
-
-    // print(change)
-    if (this.changes.length == 0) {
-      this.changes.push(change);
-      return;
-    }
-
-    const changes = [...this.changes];
-    let index = 0;
-
-    for (const { start } of changes) {
-
-      if (change.start < start) {
-        this.changes.splice(index, 0, change);
-        break;
-      }
-
-      if (index == changes.length - 1) {
-        this.changes.push(change);
-      }
-
-      index++;
-    }
-  }
-
-  replace({ start, end }: { start: number, end: number } | acorn.Node, code: string) {
-    this.sorted_push({ start, end, code });
-  }
-
-  insert(at: number, code: string) {
-    if (at == undefined) return;
-    // print('INSERT', at, code)
-    if (at == -1) {
-      at = this.source.length;
-    }
-    this.sorted_push({ start: at, code });
-  }
-
-  find_index(from: number, char: string, exact = false) {
-    for (let i = from; i < this.source.length - 1; i++) {
-      if (this.source[i] == char) {
-        return i + (exact ? 0 : 1);
-      }
-    }
-  }
-
-  commit() {
-
-    let last_index = this.changes[0]?.start;
-    const output = [this.slice(0, last_index)]
-
-    let index = 0;
-    for (const { start, end, code } of this.changes) {
-
-      last_index = (start && end) ? end : start;
-      index++;
-
-      output.push(code + this.source.slice(last_index, this.changes[index]?.start))
-    }
-
-
-
-    // for (const [slice, replacer] of this.entries.entries()) {
-    //   this.source = this.source.replace(slice, replacer)
-    // }
-
-    this.source = output.join('')
-
-    return this.source;
-  }
-
-  slice(start: number, end: number) {
-    return this.source.slice(start, end);
-  }
-
-  node_string(node: acorn.AnyNode) {
-    return this.source.slice(node.start, node.end);
   }
 }
 

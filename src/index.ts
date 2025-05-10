@@ -1,6 +1,5 @@
+import { defineElement } from "@rce";
 import { Component } from "./Component";
 
-export default [
-  Component
-]
+defineElement(Component)
 

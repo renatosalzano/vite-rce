@@ -1,25 +1,22 @@
-import {
-  acorn,
-  walk,
-  FunctionNode,
-  return_keys,
-  is_partial,
-} from "../ast";
-
 import { CONFIG_ID, CREATE_REACTIVE_VALUE, GET_VALUE } from "../../constant";
 
+import {
+  acorn,
+  is_partial,
+  ReactiveNode,
+} from "../ast";
+
+import Transformer from "../Transformer";
 import { print } from "../../utils/shortcode";
-import { Code } from "..";
 
-let node: FunctionNode;
-let code: Code;
+let node: ReactiveNode;
+// let code: Code;
 
-function transform_jsx(_node: FunctionNode, _code: Code) {
+function transform_jsx(_node: ReactiveNode, jsx: acorn.CallExpression) {
   // print(node)
   node = _node;
-  code = _code;
 
-  const [, children] = destructure_factory(node.jsx);
+  const [, children] = destructure_factory(jsx);
 
   for (const child of children) {
     transform_factory(child)
@@ -54,9 +51,9 @@ function transform_factory(h_node: acorn.AnyNode) {
         const [caller, props] = destructure_partial(h_node);
 
         const partial_caller = caller.name;
-        const partial_props = code.slice(props.start, props.end);
+        const partial_props = Transformer.slice(props.start, props.end);
 
-        code.replace(h_node, `${partial_caller}(${partial_props})`);
+        Transformer.replace(h_node, `${partial_caller}(${partial_props})`);
 
       } else if (is_factory(h_node)) {
 
@@ -71,24 +68,24 @@ function transform_factory(h_node: acorn.AnyNode) {
 
       } else if (is_map(h_node)) {
         // print(node)
-        const array = code.node_string((h_node.callee as acorn.MemberExpression).object);
+        const array = Transformer.node((h_node.callee as acorn.MemberExpression).object);
 
         // const map_callback = code.node_string(node.arguments[0]);
 
         // console.log(code.node_string(node.callee))
-        code.replace(h_node.callee, `\nh('$for', ${array},`);
+        Transformer.replace(h_node.callee, `\nh('$for', ${array},`);
 
         switch (h_node.arguments[0].type) {
           case 'FunctionExpression':
           case 'ArrowFunctionExpression': {
 
-            const params_start = code.find_index(h_node.arguments[0].start, '(');
-            code.insert(params_start, 'h,')
+            const params_start = Transformer.index_from(h_node.arguments[0].start, '(');
+            Transformer.insert(params_start, 'h,')
 
           }
         }
         // code.insert(node.start, `\nh('$for', ${array}, (h)=>`);
-        code.insert(h_node.end, ')');
+        Transformer.insert(h_node.end, ')');
 
         transform_factory((h_node.arguments[0] as acorn.Function).body);
       }
@@ -98,11 +95,11 @@ function transform_factory(h_node: acorn.AnyNode) {
 
       // left operator right 
 
-      const condition = transform_condition(code.node_string(h_node.left));
+      const condition = transform_condition(Transformer.node(h_node.left));
 
       if (!is_factory(h_node.right) && !is_map(h_node.right)) {
 
-        code.replace(
+        Transformer.replace(
           h_node.left,
           condition
         )
@@ -110,19 +107,19 @@ function transform_factory(h_node: acorn.AnyNode) {
         return;
       }
 
-      const operator_end = code
-        .find_index(h_node.left.end, h_node.operator[0], true)
+      const operator_end = Transformer
+        .index_from(h_node.left.end, h_node.operator)
         + h_node.operator.length;
 
-      code.insert(h_node.start, `\nh('$if',${condition},(h)=>`);
-      code.replace({
+      Transformer.insert(h_node.start, `\nh('$if',${condition},(h)=>`);
+      Transformer.replace({
         start: h_node.left.start,
         end: operator_end
       }, '');
 
       transform_factory(h_node.right);
 
-      code.insert(h_node.end, ')');
+      Transformer.insert(h_node.end, ')');
 
       break;
     }
@@ -130,7 +127,7 @@ function transform_factory(h_node: acorn.AnyNode) {
     case 'ConditionalExpression': {
       // bool ? consequent : alternate
 
-      const condition = transform_condition(code.node_string(h_node.test));
+      const condition = transform_condition(Transformer.node(h_node.test));
 
       if (
         !is_factory(h_node.consequent)
@@ -139,26 +136,26 @@ function transform_factory(h_node: acorn.AnyNode) {
         && !is_map(h_node.alternate)
       ) {
 
-        code.replace(h_node.test, condition);
+        Transformer.replace(h_node.test, condition);
 
         if (transform_condition.transformed) {
 
-          code.insert(
+          Transformer.insert(
             h_node.consequent.start,
             `${CONFIG_ID}.${CREATE_REACTIVE_VALUE}(`
           )
 
-          code.insert(
+          Transformer.insert(
             h_node.consequent.end,
             ')'
           )
 
-          code.insert(
+          Transformer.insert(
             h_node.alternate.start,
             `${CONFIG_ID}.${CREATE_REACTIVE_VALUE}(`
           )
 
-          code.insert(
+          Transformer.insert(
             h_node.alternate.end,
             ')'
           )
@@ -167,30 +164,30 @@ function transform_factory(h_node: acorn.AnyNode) {
         return;
       }
 
-      const consequent_start = code.find_index(h_node.test.end, '?');
-      const alternate_start = code.find_index(h_node.consequent.end, ':', true);
+      const consequent_start = Transformer.index_from(h_node.test.end, '?');
+      const alternate_start = Transformer.index_from(h_node.consequent.end, ':');
 
-      code.replace({
+      Transformer.replace({
         start: h_node.start,
         end: consequent_start
       }, '');
 
 
 
-      code.insert(consequent_start, `\nh('$if', ${condition}, (h) =>`);
+      Transformer.insert(consequent_start, `\nh('$if', ${condition}, (h) =>`);
 
       transform_factory(h_node.consequent)
 
-      code.insert(h_node.consequent.end, '),')
+      Transformer.insert(h_node.consequent.end, '),')
 
-      code.replace(
+      Transformer.replace(
         { start: alternate_start, end: alternate_start + 1 },
         `\nh('$if', !(${condition}), (h) =>`
       )
 
       transform_factory(h_node.alternate);
 
-      code.insert(h_node.alternate.end, ')')
+      Transformer.insert(h_node.alternate.end, ')')
 
 
       // code.insert(h_node.start, `\nh('$if', ${condition}, (c, h) =>`);
@@ -215,6 +212,12 @@ function destructure_partial(node: acorn.CallExpression) {
 }
 
 function destructure_factory(node: acorn.CallExpression) {
+
+  if (!node?.arguments) {
+    print(node);
+    return [null, []]
+  }
+
   const [, attributes, ...children] = node.arguments as any;
 
   return [

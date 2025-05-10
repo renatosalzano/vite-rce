@@ -114,6 +114,11 @@ function transform_body($node: ReactiveNode) {
 
 
   }
+
+  $node.reactive_keys_reg = $node.state.size == 0
+    ? undefined
+    : new RegExp([...$node.state].join('|'), 'g');
+
 }
 
 function is_state(node: acorn.CallExpression) {

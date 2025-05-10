@@ -41,16 +41,42 @@ export function is_block_statement(node: acorn.Function['body']): node is acorn.
   return node.type == 'BlockStatement';
 }
 
+export function is_identifier(node: acorn.Node): node is acorn.Identifier {
+  return node.type == 'Identifier';
+}
+
+export function is_object_pattern(node: acorn.Node): node is acorn.ObjectPattern {
+  return node.type == 'ObjectPattern';
+}
+
 export function has_return(node: acorn.BlockStatement) {
-  return node.body.at(-1).type == 'ReturnStatement';
+  return node.body.at(-1)?.type == 'ReturnStatement';
+}
+
+export function get_tag_name(node: acorn.CallExpression) {
+
+  const { callee } = node;
+
+  if (callee.type == 'Identifier' && callee.name == 'h') {
+    const tag_name = node.arguments?.[0];
+
+    if (tag_name.type == 'Literal') {
+      return tag_name.value as string
+    }
+  }
 }
 
 export type ReactiveNode = acorn.BlockStatement & {
-  state: Set<string>,
+  props: Set<string>;
+  props_string: string;
+  state: Set<string>;
+  reactive_keys_reg: RegExp;
 }
 
-export function reactive_node(node: any): ReactiveNode {
-  node.state = new Set<string>()
+export function reactive_node(node: any, props?: Set<string>, props_string?: string): ReactiveNode {
+  node.state = new Set<string>();
+  if (props) node.props = props;
+  if (props_string) node.props_string = props_string;
   return node;
 }
 

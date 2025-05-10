@@ -110,12 +110,21 @@ const add = _id.method(function add() {
 */
 
 
-/* const StatelessComponent = (props) => <custom-div>{props.hello && <span>hello</span>}</custom-div>; */
+const StatelessComponent = (props) => <custom-div>{props.hello && <span>hello</span>}</custom-div>;
 
-// const Comp = function (props) { return <custom-span>{props.hello}</custom-span> }
+// const UglyExpression = function (props) { return <custom-span>{props.hello}</custom-span> }
 
 
+function FuncComponent() {
 
+  return (
+    <custom-div>
+      <div>
+        custom div
+      </div>
+    </custom-div>
+  )
+}
 
 // const ArrowCustom = (props) => <custom-div></custom-div>
 

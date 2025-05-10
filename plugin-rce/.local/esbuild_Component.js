@@ -16,6 +16,8 @@ const $hook2 = () => {
   };
 };
 const $invalid_hook = () => null;
+function $delete_me() {
+}
 const Partial = (props) => {
   return /* @__PURE__ */ h("ul", null, props.list.map((i) => /* @__PURE__ */ h("li", null, "item ", i)));
 };
@@ -35,3 +37,7 @@ export const Component = ({ title = "hello rce" }) => {
   const props = {};
   return /* @__PURE__ */ h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h(Partial, { list: array }));
 };
+const StatelessComponent = (props) => /* @__PURE__ */ h("custom-div", null, props.hello && /* @__PURE__ */ h("span", null, "hello"));
+function FuncComponent() {
+  return /* @__PURE__ */ h("custom-div", null, /* @__PURE__ */ h("div", null, "custom div"));
+}
