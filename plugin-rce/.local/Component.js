@@ -24,6 +24,15 @@ const $hook2 = ($) =>() => {
 const Partial = (props) => {
   return /* @__PURE__ */ h("ul", null, props.list.map((i) => /* @__PURE__ */ h("li", null, "item ", i)));
 };
+const $if = ($) =>(condition, jsx)=> {
+  return condition && jsx;
+}
+const $list = ($) =>(value, fn)=> {
+  return;
+}
+const $entries = ($) =>(value, fn)=> {
+  return;
+}
 export const Component = ({ title = "hello rce" }) => {
  const $ = create({ title }, 'my-component');
   let array = $.state([1, 2, 3]);
@@ -48,7 +57,7 @@ export const Component = ({ title = "hello rce" }) => {
 	$.set([array], [_array]);
   }
   const props = {};
-  return /* @__PURE__ */ $.h = (h) =>h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ Partial({ list: array })), $;
+  return /* @__PURE__ */ $.h = (h) =>h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), show(h("div", null)), $entries({ a: 1, b: 2 }, (key, value) => key == "a"), /* @__PURE__ */ Partial({ list: array })), $;
 };
 const StatelessComponent = (props) => /* @__PURE__ */ {
  const $ = create(props, 'custom-div');

@@ -47,6 +47,17 @@ const Partial = (props: { list: Array<number> }) => {
   )
 }
 
+function $if(condition: boolean, jsx: any) {
+  return condition && jsx
+}
+
+function $list<T extends Array<unknown>>(value: T, fn: (item: T[number], index: number) => any) {
+  return
+}
+
+function $entries<T extends object>(value: T, fn: (key: keyof T, value: T[keyof T]) => any) {
+  return
+}
 
 export const Component = ({ title = 'hello rce' }) => {
 
@@ -86,6 +97,11 @@ export const Component = ({ title = 'hello rce' }) => {
         <button onclick={test}>test</button>
 
       </div> */}
+      {$if(show, <div></div>)}
+      {/* {$list(array, (i) => ())} */}
+      {$entries({ a: 1, b: 2 }, (key, value) => (
+        key == 'a'
+      ))}
 
       <Partial list={array} />
 
