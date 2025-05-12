@@ -1,13 +1,16 @@
 
 
-import type { Config } from "./createConfig";
+import type { Config } from "./create";
+import { get_name } from "./register";
 import { Template } from "./Template";
 
-function defineElement(name: string, component: (props: any) => Config) {
+function defineElement(component: (props: any) => Config) {
+
+  const name = get_name(component);
 
   const instances = new WeakMap<HTMLElement, {
     config: Config,
-    template: Template,
+    // template: Template,
   }>();
 
   console.log('define', name)
@@ -23,20 +26,20 @@ function defineElement(name: string, component: (props: any) => Config) {
 
         // console.log(config)
 
-        const template = new Template(config);
+        // const template = new Template(config);
 
-        template.init();
+        // template.init();
 
-        instances.set(this, { config, template });
+        instances.set(this, { config });
 
       }
 
       connectedCallback() {
         console.log('mounted');
 
-        const { template } = instances.get(this);
+        // const { template } = instances.get(this);
 
-        template.append(this);
+        // template.append(this);
         // template.append(this);
         // const html = self.render(self.h);
         // console.log(self.elements);

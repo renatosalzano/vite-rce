@@ -66,17 +66,27 @@ export function get_tag_name(node: acorn.CallExpression) {
   }
 }
 
-export type ReactiveNode = acorn.BlockStatement & {
-  props: Set<string>;
-  props_string: string;
-  state: Set<string>;
-  reactive_keys_reg: RegExp;
+export type ReactiveNode = acorn.BlockStatement
+  & ReactiveProperties
+  & {
+    state: Set<string>;
+    reactive_keys_reg: RegExp;
+  }
+
+type ReactiveProperties = {
+  caller_name?: string;
+  tag_name?: string;
+  props?: Set<string>;
+  props_string?: string;
 }
 
-export function reactive_node(node: any, props?: Set<string>, props_string?: string): ReactiveNode {
+export function reactive_node(node: any, data?: ReactiveProperties): ReactiveNode {
   node.state = new Set<string>();
-  if (props) node.props = props;
-  if (props_string) node.props_string = props_string;
+
+  if (data) {
+    Object.assign(node, data)
+  }
+
   return node;
 }
 

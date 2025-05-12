@@ -1,4 +1,4 @@
-import { $state } from '@rce';
+import { $state, defineElement } from '@rce';
 
 
 function $hook() {
@@ -47,17 +47,6 @@ const Partial = (props: { list: Array<number> }) => {
   )
 }
 
-function $if(condition: boolean, jsx: any) {
-  return condition && jsx
-}
-
-function $list<T extends Array<unknown>>(value: T, fn: (item: T[number], index: number) => any) {
-  return
-}
-
-function $entries<T extends object>(value: T, fn: (key: keyof T, value: T[keyof T]) => any) {
-  return
-}
 
 export const Component = ({ title = 'hello rce' }) => {
 
@@ -88,22 +77,14 @@ export const Component = ({ title = 'hello rce' }) => {
   return (
     <my-component>
       <h2>my component</h2>
-      {/* <span {...props}>{counter}</span> */}
-      {/* <strong class={'to do'}>counter is {counter} {counter} {counter}</strong> */}
-      {/* <div class='flex column'>
-        <button onclick={toggle}>list: {show ? 'true' : 'false'}</button>
-        <button onclick={add}>add</button>
-        <button onclick={minus}>minus</button>
-        <button onclick={test}>test</button>
+      {show
+        ? <div>{array.length > 0 ? "full" : "empty"}</div>
+        : "hidden"
+      }
 
-      </div> */}
-      {$if(show, <div></div>)}
-      {/* {$list(array, (i) => ())} */}
-      {$entries({ a: 1, b: 2 }, (key, value) => (
-        key == 'a'
-      ))}
-
-      <Partial list={array} />
+      {show && (
+        <div>{array.length > 0 && "array is greater than 0"}</div>
+      )}
 
     </my-component>
   )
@@ -126,21 +107,21 @@ const add = _id.method(function add() {
 */
 
 
-const StatelessComponent = (props) => <custom-div>{props.hello && <span>hello</span>}</custom-div>;
+// const StatelessComponent = (props) => <custom-div>{props.hello && <span>hello</span>}</custom-div>;
 
 // const UglyExpression = function (props) { return <custom-span>{props.hello}</custom-span> }
 
 
-function FuncComponent() {
+// function FuncComponent() {
 
-  return (
-    <custom-div>
-      <div>
-        custom div
-      </div>
-    </custom-div>
-  )
-}
+//   return (
+//     <custom-div>
+//       <div>
+//         custom div
+//       </div>
+//     </custom-div>
+//   )
+// }
 
 // const ArrowCustom = (props) => <custom-div></custom-div>
 
@@ -198,3 +179,5 @@ hydrate() {
 
 
 // const ArrowPartial = () => <div>arrow partial</div>
+
+defineElement(Component);

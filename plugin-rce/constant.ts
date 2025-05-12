@@ -5,8 +5,12 @@ const TEMPLATE_CONDITIONAL_EXPRESSION = `${CONFIG_ID}.ce`
 const GET_VALUE = 'v';
 const CREATE_REACTIVE_VALUE = 'r';
 const HYDRATE = 'h';
+const CONDITIONAL = 'if';
+const LIST = 'for'
 
 export {
+  CONDITIONAL,
+  LIST,
   CONFIG_ID,
   HOOK_START,
   STATE,

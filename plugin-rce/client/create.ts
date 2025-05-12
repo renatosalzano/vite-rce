@@ -1,8 +1,8 @@
-import { CREATE_REACTIVE_VALUE, GET_VALUE, HYDRATE } from "../constant";
+import { CONDITIONAL, CREATE_REACTIVE_VALUE, GET_VALUE, HYDRATE } from "../constant";
 
 const REACTIVE = Symbol('react');
 
-function createConfig(element_name: string, props: { [key: string]: any }) {
+function create(element_name: string, props: { [key: string]: any }) {
 
 
   const $ = {
@@ -87,6 +87,10 @@ function createConfig(element_name: string, props: { [key: string]: any }) {
       }
     },
 
+    [CONDITIONAL](condition: boolean, deps: any[], left_node: any, right_node?: any) {
+
+    },
+
     update: () => { }
   };
 
@@ -94,7 +98,7 @@ function createConfig(element_name: string, props: { [key: string]: any }) {
 }
 
 
-export type Config = ReturnType<typeof createConfig> & {
+export type Config = ReturnType<typeof create> & {
   methods: Set<Function>,
   update: Function;
   [HYDRATE]: (h: Function) => any;
@@ -102,4 +106,4 @@ export type Config = ReturnType<typeof createConfig> & {
 
 
 
-export default createConfig;
+export default create;

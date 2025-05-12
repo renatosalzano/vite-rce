@@ -54,8 +54,10 @@ class Transformer {
   static insert(at: number, code: string) {
     if (at == undefined) return;
     // print('INSERT', at, code)
-    if (at == -1) {
-      at = this.instance.source.length;
+    if (at < 0) {
+      at = at == -1
+        ? this.instance.source.length
+        : this.instance.source.length - (at - 1)
     }
 
     this.instance.sorted_push({ start: at, code });
@@ -88,7 +90,6 @@ class Transformer {
 
         const _substring = this.instance.source.slice(i, i + substring.length);
 
-        console.log(_substring)
         if (_substring == substring) {
           return i;
         }

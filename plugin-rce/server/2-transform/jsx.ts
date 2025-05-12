@@ -1,9 +1,10 @@
-import { CONFIG_ID, CREATE_REACTIVE_VALUE, GET_VALUE } from "../../constant";
+import { CONDITIONAL, CONFIG_ID, CREATE_REACTIVE_VALUE, GET_VALUE, HYDRATE } from "../../constant";
 
 import {
   acorn,
   is_partial,
   ReactiveNode,
+  walk,
 } from "../ast";
 
 import Transformer from "../Transformer";
@@ -16,11 +17,32 @@ function transform_jsx(_node: ReactiveNode, jsx: acorn.CallExpression) {
   // print(node)
   node = _node;
 
-  const [, children] = destructure_factory(jsx);
+  const [literal, attributes, ...children] = jsx.arguments as [acorn.Literal, any, acorn.AnyNode];
 
-  for (const child of children) {
-    transform_factory(child)
+  print(jsx.start)
+
+
+  if (node.tag_name == literal.value) {
+
+    Transformer.replace({
+      start: jsx.start,
+      end: attributes.end + 1
+    },
+      `${CONFIG_ID}.${HYDRATE} = (h) => (`
+    );
+
+    for (const child of children) {
+      transform_factory(child)
+    }
+
   }
+
+
+  // const [, children] = destructure_factory(jsx);
+
+  // for (const child of children) {
+  //   transform_factory(child)
+  // }
 
 }
 
@@ -93,31 +115,40 @@ function transform_factory(h_node: acorn.AnyNode) {
     }
     case "LogicalExpression": {
 
-      // left operator right 
+      // left operator right
 
-      const condition = transform_condition(Transformer.node(h_node.left));
 
-      if (!is_factory(h_node.right) && !is_map(h_node.right)) {
+      Transformer.insert(h_node.start, `\n${CONFIG_ID}.${CONDITIONAL}(`)
 
-        Transformer.replace(
-          h_node.left,
-          condition
-        )
+      const deps = new Set<string>();
 
-        return;
-      }
+      walk(h_node.left, {
+        Identifier(id) {
+          if (node.state.has(id.name)) {
+            deps.add(id.name);
+            Transformer.wrap(id, `${CONFIG_ID}.${GET_VALUE}(`, ')')
+          }
+        }
+      })
 
-      const operator_end = Transformer
-        .index_from(h_node.left.end, h_node.operator)
-        + h_node.operator.length;
+      const deps_string = [...deps].join(',')
 
-      Transformer.insert(h_node.start, `\nh('$if',${condition},(h)=>`);
+      Transformer.insert(h_node.left.end, `,[${deps_string}]`)
+
+      // const condition = transform_condition(Transformer.node(h_node.left));
+
+
+      const operator_start = Transformer.index_from(h_node.left.end, h_node.operator);
+
       Transformer.replace({
-        start: h_node.left.start,
-        end: operator_end
-      }, '');
+        start: operator_start,
+        end: operator_start + h_node.operator.length
+      }, ',')
 
-      transform_factory(h_node.right);
+      if (is_factory(h_node.right)) {
+        Transformer.insert(h_node.right.start, '() =>')
+        transform_factory(h_node.right);
+      }
 
       Transformer.insert(h_node.end, ')');
 
@@ -127,75 +158,44 @@ function transform_factory(h_node: acorn.AnyNode) {
     case 'ConditionalExpression': {
       // bool ? consequent : alternate
 
-      const condition = transform_condition(Transformer.node(h_node.test));
+      Transformer.insert(h_node.start - 1, `\n${CONFIG_ID}.${CONDITIONAL}(`)
 
-      if (
-        !is_factory(h_node.consequent)
-        && !is_map(h_node.consequent)
-        && !is_factory(h_node.alternate)
-        && !is_map(h_node.alternate)
-      ) {
+      const deps = new Set<string>();
 
-        Transformer.replace(h_node.test, condition);
-
-        if (transform_condition.transformed) {
-
-          Transformer.insert(
-            h_node.consequent.start,
-            `${CONFIG_ID}.${CREATE_REACTIVE_VALUE}(`
-          )
-
-          Transformer.insert(
-            h_node.consequent.end,
-            ')'
-          )
-
-          Transformer.insert(
-            h_node.alternate.start,
-            `${CONFIG_ID}.${CREATE_REACTIVE_VALUE}(`
-          )
-
-          Transformer.insert(
-            h_node.alternate.end,
-            ')'
-          )
+      walk(h_node.test, {
+        Identifier(id) {
+          if (node.state.has(id.name)) {
+            deps.add(id.name);
+            Transformer.wrap(id, `${CONFIG_ID}.${GET_VALUE}(`, ')')
+          }
         }
-        print('is transformed', transform_condition.transformed)
-        return;
-      }
+      })
+
+      const deps_string = [...deps].join(',')
+
+      Transformer.insert(h_node.test.end, `,[${deps_string}]`)
 
       const consequent_start = Transformer.index_from(h_node.test.end, '?');
       const alternate_start = Transformer.index_from(h_node.consequent.end, ':');
 
-      Transformer.replace({
-        start: h_node.start,
-        end: consequent_start
-      }, '');
+      // print(Transformer.slice(consequent_start, consequent_start + 1))
+
+      Transformer.replace({ start: consequent_start, end: consequent_start + 1 }, ',')
+
+      if (is_factory(h_node.consequent)) {
+        Transformer.insert(h_node.consequent.start, '() =>')
+        transform_factory(h_node.consequent);
+      }
 
 
+      Transformer.replace({ start: alternate_start, end: alternate_start + 1 }, ',')
 
-      Transformer.insert(consequent_start, `\nh('$if', ${condition}, (h) =>`);
+      if (is_factory(h_node.alternate)) {
+        Transformer.insert(h_node.alternate.start, '() =>')
+        transform_factory(h_node.alternate);
+      }
 
-      transform_factory(h_node.consequent)
-
-      Transformer.insert(h_node.consequent.end, '),')
-
-      Transformer.replace(
-        { start: alternate_start, end: alternate_start + 1 },
-        `\nh('$if', !(${condition}), (h) =>`
-      )
-
-      transform_factory(h_node.alternate);
-
-      Transformer.insert(h_node.alternate.end, ')')
-
-
-      // code.insert(h_node.start, `\nh('$if', ${condition}, (c, h) =>`);
-      // code.replace(h_node.test, 'c');
-      // code.insert(h_node.end, ')');
-
-      // transform_factory(h_node.consequent);
-      // transform_factory(h_node.alternate);
+      Transformer.insert(h_node.end, ')')
       break;
     }
   }

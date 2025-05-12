@@ -1,7 +1,7 @@
 import {
   GET_VALUE,
 } from "../constant";
-import { Config } from "./createConfig";
+import { Config } from "./create";
 
 import { ListTemplate, Template } from "./Template";
 

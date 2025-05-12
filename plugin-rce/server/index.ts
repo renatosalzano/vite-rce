@@ -2,7 +2,7 @@ import { transformWithEsbuild } from 'vite';
 import { writeFile } from 'fs/promises';
 import { extname, parse, resolve } from 'path';
 import { CONFIG_ID, HYDRATE } from '../constant.ts';
-import { acorn, get_tag_name, has_return, is_block_statement, is_factory, is_hook, reactive_node, walk } from './ast.ts';
+import { acorn, get_tag_name, has_return, is_block_statement, is_factory, is_hook, is_identifier, reactive_node, walk } from './ast.ts';
 import parse_body_return from './1-parse/body_return.ts';
 import parse_props from './1-parse/props.ts';
 import transform_jsx from './2-transform/jsx.ts';
@@ -32,7 +32,7 @@ async function transform(id: string, source_code: string) {
 
     new Transformer(source_code);
 
-    Transformer.insert(0, `import { create, defineComponent } from '@rce/dev';\n`)
+    Transformer.insert(0, `import { create, register } from '@rce/dev';\n`)
 
     const ast = acorn.parse(source_code, {
       sourceType: 'module',
@@ -72,13 +72,16 @@ async function transform(id: string, source_code: string) {
           if (type) {
             const { props, props_string } = parse_props(node.params);
 
-            const $node = reactive_node(node.body);
-            $node.props = props;
-            $node.props_string = props_string;
+            const $node = reactive_node(node.body, {
+              caller_name: node.id.name,
+              tag_name,
+              props,
+              props_string
+            });
 
             if (type == 'custom_element') {
 
-              transform_custom_element($node, tag_name, jsx_node);
+              transform_custom_element($node, jsx_node);
             }
           }
 
@@ -87,6 +90,7 @@ async function transform(id: string, source_code: string) {
       },
 
       VariableDeclaration(node) {
+
         for (const var_node of node.declarations) {
 
           if (!var_node.init) continue;
@@ -131,12 +135,11 @@ async function transform(id: string, source_code: string) {
 
                   Transformer.wrap(
                     var_node.init.body,
-                    `{\n const ${CONFIG_ID} = create(${props_string}, '${tag_name}');\n return ${CONFIG_ID}.${HYDRATE} = (h) =>`,
+                    `{\n const ${CONFIG_ID} = create(${props_string});\n return ${CONFIG_ID}.${HYDRATE} = (h) =>`,
                     `, ${CONFIG_ID}\n}`
                   )
 
-                  const $node = reactive_node({});
-                  $node.props = props;
+                  const $node = reactive_node({}, { props });
 
                   transform_jsx($node, var_node.init.body);
 
@@ -156,17 +159,22 @@ async function transform(id: string, source_code: string) {
                   jsx_node
                 } = parse_body_return(var_node.init.body);
 
-                if (type) {
+                const id = var_node.id as acorn.Node;
+
+                if (type && is_identifier(id)) {
+
                   const { props, props_string } = parse_props(var_node.init.params);
 
-                  const node = reactive_node(var_node.init.body);
-
-                  node.props = props;
-                  node.props_string = props_string;
+                  const node = reactive_node(var_node.init.body, {
+                    caller_name: id.name,
+                    tag_name,
+                    props,
+                    props_string
+                  });
 
                   if (type == 'custom_element') {
 
-                    transform_custom_element(node, tag_name, jsx_node);
+                    transform_custom_element(node, jsx_node);
 
                   } else {
 
@@ -183,9 +191,14 @@ async function transform(id: string, source_code: string) {
       }
     })
 
+    const transformed_code = Transformer.commit();
 
+    const dev_code = await transformWithEsbuild(transformed_code, 'code.js', {
+      loader: 'js'
+    })
 
-    writeFile(resolve(__dirname, `../.local/${parse(id).name}.js`), Transformer.commit(), 'utf-8')
+    writeFile(resolve(__dirname, `../.local/${parse(id).name}.js`), dev_code.code, 'utf-8')
+    return transformed_code
     return source_code;
 
   } catch (err) {

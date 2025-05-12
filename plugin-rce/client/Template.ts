@@ -1,5 +1,5 @@
 import Cache from "./Cache";
-import { Config } from "./createConfig";
+import { Config } from "./create";
 
 type AnyObject = {
   [key: string]: any;
