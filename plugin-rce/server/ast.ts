@@ -49,6 +49,10 @@ export function is_object_pattern(node: acorn.Node): node is acorn.ObjectPattern
   return node.type == 'ObjectPattern';
 }
 
+export function is_member_expression(node: acorn.Node): node is acorn.MemberExpression {
+  return node.type == 'MemberExpression';
+}
+
 export function has_return(node: acorn.BlockStatement) {
   return node.body.at(-1)?.type == 'ReturnStatement';
 }

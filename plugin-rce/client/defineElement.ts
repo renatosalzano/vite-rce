@@ -10,7 +10,7 @@ function defineElement(component: (props: any) => Config) {
 
   const instances = new WeakMap<HTMLElement, {
     config: Config,
-    // template: Template,
+    template: any,
   }>();
 
   console.log('define', name)
@@ -23,6 +23,7 @@ function defineElement(component: (props: any) => Config) {
         super();
 
         const config = component({});
+        const template = config.template();
 
         // console.log(config)
 
@@ -30,14 +31,16 @@ function defineElement(component: (props: any) => Config) {
 
         // template.init();
 
-        instances.set(this, { config });
+        instances.set(this, { config, template });
 
       }
 
       connectedCallback() {
         console.log('mounted');
 
-        // const { template } = instances.get(this);
+        const { template } = instances.get(this);
+
+        template.mount(this)
 
         // template.append(this);
         // template.append(this);

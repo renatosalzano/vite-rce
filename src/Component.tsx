@@ -1,4 +1,4 @@
-import { $state, defineElement } from '@rce';
+import { $state, $for, defineElement } from '@rce';
 
 
 function $hook() {
@@ -50,24 +50,31 @@ const Partial = (props: { list: Array<number> }) => {
 
 export const Component = ({ title = 'hello rce' }) => {
 
-  // let show = $state(false)
+  let show = $state(false)
   let array = $state([1, 2, 3])
 
-  let state = $state(true);
+  let obj = $state({
+    nested: {
+      list: [1, 2, 3]
+    }
+  })
 
-  const { show, toggle } = $hook();
+  // let $ = $state(true);
+
+  // const { show, toggle } = $hook();
 
   function add() {
     array.push(array.length + 1)
   }
 
   const minus = () => {
-    array.pop()
+    array.pop();
+    console.log(array)
   }
 
-  function test() {
-
-    array = array.map((i) => i + 1)
+  function toggle() {
+    show = !show;
+    console.log('show', show)
   }
 
 
@@ -77,6 +84,12 @@ export const Component = ({ title = 'hello rce' }) => {
   return (
     <my-component>
       <h2>my component</h2>
+      <div class={show ? 'show' : 'hidden'}>
+        <button onclick={toggle}>toggle</button>
+        <button onclick={add}>add</button>
+        <button onclick={minus}>minus</button>
+      </div>
+
       {show
         ? <div>{array.length > 0 ? "full" : "empty"}</div>
         : "hidden"
@@ -85,6 +98,14 @@ export const Component = ({ title = 'hello rce' }) => {
       {show && (
         <div>{array.length > 0 && "array is greater than 0"}</div>
       )}
+
+      {array.map((i) => (
+        <div>item - {i}
+          {i == 2 && <div>condition by param</div>}
+          {show ? <div>show</div> : 'hidden'}
+        </div>
+      ))
+      }
 
     </my-component>
   )

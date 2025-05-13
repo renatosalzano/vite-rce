@@ -1,7 +1,9 @@
-import { CONDITIONAL, CONFIG_ID, CREATE_REACTIVE_VALUE, GET_VALUE, HYDRATE } from "../../constant";
+import { CONDITIONAL, CONFIG_ID, CREATE_REACTIVE_VALUE, GET_VALUE, HYDRATE, LIST } from "../../constant";
 
 import {
   acorn,
+  is_identifier,
+  is_member_expression,
   is_partial,
   ReactiveNode,
   walk,
@@ -10,39 +12,20 @@ import {
 import Transformer from "../Transformer";
 import { print } from "../../utils/shortcode";
 
-let node: ReactiveNode;
+let $node: ReactiveNode;
 // let code: Code;
 
 function transform_jsx(_node: ReactiveNode, jsx: acorn.CallExpression) {
   // print(node)
-  node = _node;
+  $node = _node;
 
-  const [literal, attributes, ...children] = jsx.arguments as [acorn.Literal, any, acorn.AnyNode];
+  const [_literal, _attributes, ...children] = jsx.arguments as [acorn.Literal, any, acorn.AnyNode];
 
-  print(jsx.start)
+  Transformer.insert(jsx.start, `${CONFIG_ID}.${HYDRATE} = (h) =>`)
 
-
-  if (node.tag_name == literal.value) {
-
-    Transformer.replace({
-      start: jsx.start,
-      end: attributes.end + 1
-    },
-      `${CONFIG_ID}.${HYDRATE} = (h) => (`
-    );
-
-    for (const child of children) {
-      transform_factory(child)
-    }
-
+  for (const child of children) {
+    transform_factory(child)
   }
-
-
-  // const [, children] = destructure_factory(jsx);
-
-  // for (const child of children) {
-  //   transform_factory(child)
-  // }
 
 }
 
@@ -52,7 +35,7 @@ function transform_condition(condition: string) {
   transform_condition.transformed = false;
 
   return condition.replace(
-    node.reactive_keys_reg,
+    $node.reactive_keys_reg,
     (match) => {
       transform_condition.transformed = true;
       return `${CONFIG_ID}.${GET_VALUE}(${match})`
@@ -79,7 +62,17 @@ function transform_factory(h_node: acorn.AnyNode) {
 
       } else if (is_factory(h_node)) {
 
-        const [, children] = destructure_factory(h_node);
+        const [attributes, children] = destructure_factory(h_node);
+
+        // print(attributes)
+        if (attributes) {
+
+          for (const property of attributes) {
+            transform_factory(property.value)
+          }
+
+        }
+
 
         for (const child of children) {
           transform_factory(child)
@@ -89,24 +82,41 @@ function transform_factory(h_node: acorn.AnyNode) {
 
 
       } else if (is_map(h_node)) {
-        // print(node)
-        const array = Transformer.node((h_node.callee as acorn.MemberExpression).object);
+
+        Transformer.insert(h_node.start, `$.${LIST}(()=>`)
+
+        const me = h_node.callee as acorn.MemberExpression;
+
+        const deps = new Set<string>();
+
+        walk(me.object, {
+          Identifier(id) {
+            if ($node.state.has(id.name)) {
+              deps.add(id.name);
+              Transformer.wrap(id, `${CONFIG_ID}.${GET_VALUE}(`, ')')
+            }
+          }
+        })
+
+        const deps_string = [...deps].join(',')
+
+        Transformer.insert(h_node.end, `, [${deps_string}]`)
 
         // const map_callback = code.node_string(node.arguments[0]);
 
         // console.log(code.node_string(node.callee))
-        Transformer.replace(h_node.callee, `\nh('$for', ${array},`);
+        // Transformer.replace(h_node.callee, `$.${LIST}(${array},`);
 
-        switch (h_node.arguments[0].type) {
-          case 'FunctionExpression':
-          case 'ArrowFunctionExpression': {
+        // switch (h_node.arguments[0].type) {
+        //   case 'FunctionExpression':
+        //   case 'ArrowFunctionExpression': {
 
-            const params_start = Transformer.index_from(h_node.arguments[0].start, '(');
-            Transformer.insert(params_start, 'h,')
+        //     const params_start = Transformer.index_from(h_node.arguments[0].start, '(');
+        //     // Transformer.insert(params_start, 'h,')
 
-          }
-        }
-        // code.insert(node.start, `\nh('$for', ${array}, (h)=>`);
+        //   }
+        // }
+
         Transformer.insert(h_node.end, ')');
 
         transform_factory((h_node.arguments[0] as acorn.Function).body);
@@ -117,14 +127,13 @@ function transform_factory(h_node: acorn.AnyNode) {
 
       // left operator right
 
-
-      Transformer.insert(h_node.start, `\n${CONFIG_ID}.${CONDITIONAL}(`)
+      Transformer.insert(h_node.start, `\n${CONFIG_ID}.${CONDITIONAL}(()=>`)
 
       const deps = new Set<string>();
 
       walk(h_node.left, {
         Identifier(id) {
-          if (node.state.has(id.name)) {
+          if ($node.state.has(id.name)) {
             deps.add(id.name);
             Transformer.wrap(id, `${CONFIG_ID}.${GET_VALUE}(`, ')')
           }
@@ -137,7 +146,6 @@ function transform_factory(h_node: acorn.AnyNode) {
 
       // const condition = transform_condition(Transformer.node(h_node.left));
 
-
       const operator_start = Transformer.index_from(h_node.left.end, h_node.operator);
 
       Transformer.replace({
@@ -146,7 +154,7 @@ function transform_factory(h_node: acorn.AnyNode) {
       }, ',')
 
       if (is_factory(h_node.right)) {
-        Transformer.insert(h_node.right.start, '() =>')
+        // Transformer.insert(h_node.right.start, '(h) =>')
         transform_factory(h_node.right);
       }
 
@@ -156,50 +164,76 @@ function transform_factory(h_node: acorn.AnyNode) {
     }
 
     case 'ConditionalExpression': {
+
       // bool ? consequent : alternate
 
-      Transformer.insert(h_node.start - 1, `\n${CONFIG_ID}.${CONDITIONAL}(`)
-
-      const deps = new Set<string>();
-
-      walk(h_node.test, {
-        Identifier(id) {
-          if (node.state.has(id.name)) {
-            deps.add(id.name);
-            Transformer.wrap(id, `${CONFIG_ID}.${GET_VALUE}(`, ')')
+      conditional_expr(
+        h_node,
+        (node) => {
+          if (is_factory(node)) {
+            transform_factory(node);
           }
         }
-      })
-
-      const deps_string = [...deps].join(',')
-
-      Transformer.insert(h_node.test.end, `,[${deps_string}]`)
-
-      const consequent_start = Transformer.index_from(h_node.test.end, '?');
-      const alternate_start = Transformer.index_from(h_node.consequent.end, ':');
-
-      // print(Transformer.slice(consequent_start, consequent_start + 1))
-
-      Transformer.replace({ start: consequent_start, end: consequent_start + 1 }, ',')
-
-      if (is_factory(h_node.consequent)) {
-        Transformer.insert(h_node.consequent.start, '() =>')
-        transform_factory(h_node.consequent);
-      }
+      )
 
 
-      Transformer.replace({ start: alternate_start, end: alternate_start + 1 }, ',')
-
-      if (is_factory(h_node.alternate)) {
-        Transformer.insert(h_node.alternate.start, '() =>')
-        transform_factory(h_node.alternate);
-      }
-
-      Transformer.insert(h_node.end, ')')
       break;
     }
   }
 
+}
+
+
+function logical_expr(node: acorn.LogicalExpression) {
+
+}
+
+function conditional_expr(
+  node: acorn.ConditionalExpression,
+  callback: (node: acorn.AnyNode) => void,
+) {
+
+  Transformer.insert(node.start - 1, `\n${CONFIG_ID}.${CONDITIONAL}(()=>`)
+
+  const deps = new Set<string>();
+
+  walk(node.test, {
+    Identifier(id) {
+      if ($node.state.has(id.name)) {
+        deps.add(id.name);
+        Transformer.wrap(id, `${CONFIG_ID}.${GET_VALUE}(`, ')')
+      }
+    }
+  })
+
+  const deps_string = [...deps].join(',')
+
+  Transformer.insert(node.test.end, `,[${deps_string}]`)
+
+  const consequent_start = Transformer.index_from(node.test.end, '?');
+  const alternate_start = Transformer.index_from(node.consequent.end, ':');
+
+  // print(Transformer.slice(consequent_start, consequent_start + 1))
+
+  Transformer.replace({ start: consequent_start, end: consequent_start + 1 }, ',')
+
+  callback(node.consequent);
+  // if (is_factory(node.consequent)) {
+  //   // Transformer.insert(h_node.consequent.start, '(h) =>')
+  //   transform_factory(node.consequent);
+  // }
+
+
+  Transformer.replace({ start: alternate_start, end: alternate_start + 1 }, ',')
+
+  callback(node.alternate);
+
+  // if (is_factory(node.alternate)) {
+  //   // Transformer.insert(h_node.alternate.start, '(h) =>')
+  //   transform_factory(node.alternate);
+  // }
+
+  Transformer.insert(node.end, ')')
 }
 
 
@@ -211,7 +245,7 @@ function destructure_partial(node: acorn.CallExpression) {
   ]
 }
 
-function destructure_factory(node: acorn.CallExpression) {
+function destructure_factory(node: acorn.CallExpression): [null | acorn.Property[], acorn.AnyNode[]] {
 
   if (!node?.arguments) {
     print(node);
@@ -221,10 +255,10 @@ function destructure_factory(node: acorn.CallExpression) {
   const [, attributes, ...children] = node.arguments as any;
 
   return [
-    attributes.type == 'ObjectExpression' ? attributes : null,
+    attributes.type == 'ObjectExpression' ? attributes.properties : null,
     children
   ] as [
-      null | acorn.ObjectExpression,
+      null | acorn.Property[],
       acorn.AnyNode[]
     ]
 }
@@ -235,11 +269,18 @@ function is_factory(node: acorn.AnyNode) {
 }
 
 
-function is_map(node: acorn.AnyNode) {
-  return node.type == 'CallExpression'
-    && node.callee.type == 'MemberExpression'
-    && node.callee.property.type == 'Identifier'
-    && node.callee.property.name == 'map'
+function is_map(node: acorn.CallExpression) {
+
+  if (is_member_expression(node.callee)) {
+
+    if (is_identifier(node.callee.property)) {
+      return node.callee.property.name == 'map';
+    }
+
+  }
+
+
+  return false;
 }
 
 export default transform_jsx;

@@ -15,7 +15,6 @@ class Transformer {
     }
 
     Transformer.instance = this;
-
   }
 
   private mods: Mod[] = [];
@@ -30,13 +29,17 @@ class Transformer {
     // const changes = [...this.mods];
     let index = 0;
 
-    for (const { start, end } of this.mods) {
+    for (const { start } of this.mods) {
 
       // console.log('index current', index)
 
+      if (mod.start == start) {
+        index++;
+        continue;
+      }
+
+
       if (mod.start < start) {
-        // console.log('found', index)
-        // this.changes.splice(index, 0, change);
         break;
       }
 
@@ -123,6 +126,8 @@ class Transformer {
 
     self.source = output.join('')
 
+    // clean instance
+    Transformer.instance = undefined;
     return self.source;
   }
 

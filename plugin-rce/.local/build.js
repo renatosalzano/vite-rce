@@ -15,14 +15,14 @@ var HOOK_START = "$";
 var STATE = `${HOOK_START}state`;
 var TEMPLATE_CONDITIONAL_EXPRESSION = `${CONFIG_ID}.ce`;
 var GET_VALUE = "v";
-var CREATE_REACTIVE_VALUE = "r";
+var HYDRATE = "h";
 var CONDITIONAL = "if";
+var LIST = "for";
 
 // plugin-rce/client/create.ts
 var REACTIVE = Symbol("react");
-function create(element_name, props) {
+function create(props) {
   const $ = {
-    element_name,
     props,
     state_map: [],
     state(value) {
@@ -30,6 +30,7 @@ function create(element_name, props) {
       $.state_map[index] = {
         value,
         index,
+        mutations: [],
         $$type: REACTIVE
       };
       return $.state_map[index];
@@ -43,12 +44,9 @@ function create(element_name, props) {
     },
     set_state(state, value) {
       $.state_map[state.index].value = value;
-    },
-    create_state(value) {
-      return {
-        value,
-        $$type: REACTIVE
-      };
+      for (const update of $.state_map[state.index].mutations) {
+        update();
+      }
     },
     get(...getters) {
       return getters.map((getter) => {
@@ -66,7 +64,6 @@ function create(element_name, props) {
         }
         index++;
       }
-      $.update();
     },
     [GET_VALUE](value) {
       if ($.is_state(value)) {
@@ -74,19 +71,187 @@ function create(element_name, props) {
       }
       return value;
     },
-    [CREATE_REACTIVE_VALUE](value) {
-      return {
-        value,
-        $$type: REACTIVE
-      };
+    [HYDRATE]: (_) => {
     },
-    [CONDITIONAL](condition, deps, left_node, right_node) {
+    [CONDITIONAL](condition, deps, _if, _else) {
+      const conditional = new Conditional(condition, _if, _else);
+      for (const dep of deps) {
+        dep.mutations.push(conditional.update);
+      }
+      return conditional.create();
     },
-    update: () => {
+    [LIST](result, deps) {
+      const list = new List(result);
+      for (const dep of deps) {
+        dep.mutations.push(list.update);
+      }
+      return list.create();
+    },
+    template: () => {
+      $.template = new Template($);
+      return $.template;
     }
   };
   return $;
 }
+var Template = class {
+  $;
+  root;
+  constructor($) {
+    this.$ = $;
+  }
+  mount = (root) => {
+    this.root = root;
+    this.$[HYDRATE](this.render);
+  };
+  render = (tag, props, ...children) => {
+    if (tag == this.root.localName) {
+      this.append(this.root, children);
+      return;
+    }
+    const element = document.createElement(tag);
+    if (props) {
+      for (const key in props) {
+        let value = props[key];
+        if (value instanceof Mutation) {
+          value.set_target("attr", element, key);
+          value = value.value;
+        }
+        if (key.startsWith("on")) {
+          element[key] = value;
+        } else {
+          element.setAttribute(key, value);
+        }
+      }
+    }
+    this.append(element, children);
+    return element;
+  };
+  append(element, children) {
+    let index = 0;
+    for (const child of children) {
+      if (child instanceof Mutation) {
+        child.set_target("node", element, index);
+        if (Array.isArray(child.value)) {
+          element.append(...child.value);
+        } else {
+          element.append(child.value);
+        }
+      } else {
+        element.append(child);
+      }
+      ++index;
+    }
+  }
+};
+var Mutation = class {
+  value;
+  set_target = () => {
+  };
+  constructor(value, set_target) {
+    this.value = value;
+    if (set_target) this.set_target = set_target;
+  }
+};
+var Conditional = class {
+  exec_condition;
+  condition;
+  slot;
+  current;
+  target;
+  index;
+  type;
+  node = {
+    if: null,
+    else: null
+  };
+  constructor(condition, _if, _else = null) {
+    this.exec_condition = condition;
+    this.condition = condition();
+    this.slot = new Comment("$");
+    const set_target = (type, target, index) => {
+      this.type = type;
+      this.target = target;
+      this.index = index;
+    };
+    this.node.if = new Mutation(_if, set_target);
+    this.node.else = new Mutation(_else || this.slot, set_target);
+  }
+  create = () => {
+    this.condition = this.exec_condition();
+    if (this.condition) {
+      return this.node.if;
+    } else {
+      return this.node.else;
+    }
+  };
+  update = () => {
+    const condition = this.exec_condition();
+    if (this.condition != condition) {
+      this.condition = condition;
+      const node = this.condition ? this.node.if : this.node.else;
+      if (this.type == "node") {
+        this.target.childNodes[this.index].replaceWith(node.value);
+      }
+      if (this.type == "attr") {
+        this.target[this.index] = node.value;
+      }
+    }
+  };
+};
+var List = class {
+  result;
+  slot;
+  node_list = [];
+  target;
+  child_index = 0;
+  constructor(result) {
+    this.result = result;
+    this.slot = new Comment("$");
+    this.node_list = this.result();
+    if (this.node_list.length == 0) {
+      this.node_list[0] = this.slot;
+    }
+  }
+  create = () => {
+    return new Mutation(this.node_list);
+  };
+  update = () => {
+    const node_list = this.result();
+    const max_index = Math.max(node_list.length, this.node_list.length);
+    let last_element = this.node_list[0];
+    for (let index = 0; index < max_index; index++) {
+      const element = node_list[index];
+      if (index < node_list.length) {
+        if (this.node_list[index]) {
+          const dom_element = this.node_list[index];
+          if (!dom_element.isEqualNode(element)) {
+            dom_element.replaceWith(element);
+            this.node_list[index] = element;
+            last_element = element;
+          } else {
+            last_element = dom_element;
+          }
+        } else {
+          this.node_list[index] = element;
+          last_element.after(element);
+          last_element = element;
+        }
+      } else {
+        if (this.node_list.length == 1) {
+          this.node_list[0].replaceWith(this.slot);
+          this.node_list[0] = this.slot;
+        } else {
+          this.node_list[index].remove();
+          this.node_list.splice(index, 1);
+        }
+      }
+    }
+  };
+  mutation = (target) => {
+    target.append(...this.node_list);
+  };
+};
 var create_default = create;
 
 // plugin-rce/client/defineElement.ts
@@ -100,10 +265,13 @@ function defineElement(component) {
       constructor() {
         super();
         const config = component({});
-        instances.set(this, { config });
+        const template = config.template();
+        instances.set(this, { config, template });
       }
       connectedCallback() {
         console.log("mounted");
+        const { template } = instances.get(this);
+        template.mount(this);
       }
       setProps(props) {
       }
@@ -113,7 +281,7 @@ function defineElement(component) {
 var defineElement_default = defineElement;
 
 // plugin-rce/client/Template.ts
-var Template = class {
+var Template2 = class {
   // mutations = new Mutations();
   $ = {};
   cache = new Cache_default(this);
@@ -219,7 +387,7 @@ var Template = class {
     }
   };
 };
-var ConditionalTemplate = class extends Template {
+var ConditionalTemplate = class extends Template2 {
   type;
   target;
   condition;
@@ -266,7 +434,7 @@ var ConditionalTemplate = class extends Template {
     return this.target;
   };
 };
-var ListTemplate = class extends Template {
+var ListTemplate = class extends Template2 {
   node_list = /* @__PURE__ */ new Map();
   placeholder;
   render;
@@ -450,7 +618,7 @@ export {
   Cache_default as Cache,
   ConditionalTemplate,
   ListTemplate,
-  Template,
+  Template2 as Template,
   create_default as create,
   defineElement_default as defineElement,
   register_default as register

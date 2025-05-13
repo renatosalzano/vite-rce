@@ -193,6 +193,8 @@ async function transform(id: string, source_code: string) {
 
     const transformed_code = Transformer.commit();
 
+    writeFile(resolve(__dirname, `../.local/${parse(id).name}_transformed.js`), transformed_code, 'utf-8')
+
     const dev_code = await transformWithEsbuild(transformed_code, 'code.js', {
       loader: 'js'
     })

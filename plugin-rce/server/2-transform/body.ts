@@ -4,6 +4,20 @@ import Transformer from "../Transformer";
 
 function transform_body($node: ReactiveNode) {
 
+  function parse_state_keys(node: acorn.AnyNode) {
+
+    const keys = return_keys(node);
+
+    keys.forEach(key => {
+      if (key == CONFIG_ID) {
+        throw '$ is reserved keyword';
+      }
+
+      $node.state.add(key)
+
+    })
+  }
+
   function parse_method(node: acorn.Function) {
 
     const reactive_keys = new Set<string>()
@@ -26,11 +40,8 @@ function transform_body($node: ReactiveNode) {
 
     if (node.body.type == 'BlockStatement') {
 
-      const [node_start, node_end] = [node.body.body[0].start - 1, node.body.body.at(-1).end + 1]
-      // const index_start = code.find_index(fnode.body.start, '{');
-      // const index_end = code.find_index(fnode.body.end, '{');
-      Transformer.insert(node_start, `\tlet [${getter_keys}] = $.get(${keys});\n`);
-      Transformer.insert(node_end, `\n\t$.set([${keys}], [${getter_keys}]);\n`);
+      Transformer.insert(node.body.start + 1, `\nlet [${getter_keys}] = $.get(${keys});\n`);
+      Transformer.insert(node.body.end - 1, `\n$.set([${keys}], [${getter_keys}]);\n`);
     }
 
   }
@@ -59,13 +70,15 @@ function transform_body($node: ReactiveNode) {
                     throw '$state must have 1 argument'
                   }
 
-                  const state = return_keys(_node.id);
+                  // const state = return_keys(_node.id);
+
+                  parse_state_keys(_node.id);
 
                   Transformer.replace(_node.init.callee, '$.state')
 
-                  state.forEach((key) => {
-                    $node.state.add(key);
-                  })
+                  // state.forEach((key) => {
+                  //   $node.state.add(key);
+                  // })
                   break;
                 }
 
@@ -74,11 +87,7 @@ function transform_body($node: ReactiveNode) {
 
               if (is_hook(_node.init)) {
 
-                const hook_keys = return_keys(_node.id);
-
-                hook_keys.forEach((key) => {
-                  $node.state.add(key);
-                })
+                parse_state_keys(_node.id)
 
                 Transformer.insert(
                   _node.init.callee.end,
@@ -120,6 +129,8 @@ function transform_body($node: ReactiveNode) {
     : new RegExp([...$node.state].join('|'), 'g');
 
 }
+
+
 
 function is_state(node: acorn.CallExpression) {
   return node.callee.type == 'Identifier' && node.callee.name == STATE;
