@@ -84,28 +84,37 @@ export const Component = ({ title = 'hello rce' }) => {
   return (
     <my-component>
       <h2>my component</h2>
+
       <div class={show ? 'show' : 'hidden'}>
         <button onclick={toggle}>toggle</button>
-        <button onclick={add}>add</button>
-        <button onclick={minus}>minus</button>
+        <button onclick={show ? add : minus}>{show ? 'add' : 'minus'}</button>
+
+        <button onclick={show ? add : null}>{show ? 'add' : 'nothing'} {show && 'add something'}</button>
       </div>
 
-      {show
+      {/* {show
         ? <div>{array.length > 0 ? "full" : "empty"}</div>
         : "hidden"
-      }
+      } */}
 
-      {show && (
-        <div>{array.length > 0 && "array is greater than 0"}</div>
+      {!show && (
+        <div>{array.length > 0 && (
+          <div>
+            nested
+            {array.length > 1 && (
+              <div>neested 1</div>
+            )}
+          </div>
+        )}</div>
       )}
 
-      {array.map((i) => (
+      {/* {array.map((i) => (
         <div>item - {i}
           {i == 2 && <div>condition by param</div>}
           {show ? <div>show</div> : 'hidden'}
         </div>
       ))
-      }
+      } */}
 
     </my-component>
   )

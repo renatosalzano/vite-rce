@@ -16,133 +16,66 @@ var STATE = `${HOOK_START}state`;
 var TEMPLATE_CONDITIONAL_EXPRESSION = `${CONFIG_ID}.ce`;
 var GET_VALUE = "v";
 var HYDRATE = "h";
-var CONDITIONAL = "if";
-var LIST = "for";
+var CONDITIONAL = "i";
+var LIST = "f";
 
-// plugin-rce/client/create.ts
-var REACTIVE = Symbol("react");
-function create(props) {
-  const $ = {
-    props,
-    state_map: [],
-    state(value) {
-      const index = $.state_map.length;
-      $.state_map[index] = {
-        value,
-        index,
-        mutations: [],
-        $$type: REACTIVE
-      };
-      return $.state_map[index];
-    },
-    is_state(value) {
-      if (typeof value == "object" && value?.$$type == REACTIVE) return true;
-      return false;
-    },
-    get_state(value) {
-      return value.value;
-    },
-    set_state(state, value) {
-      $.state_map[state.index].value = value;
-      for (const update of $.state_map[state.index].mutations) {
-        update();
-      }
-    },
-    get(...getters) {
-      return getters.map((getter) => {
-        if ($.is_state(getter)) {
-          return $.get_state(getter);
-        }
-        return getter;
-      });
-    },
-    set(setters, getters) {
-      let index = 0;
-      for (const setter of setters) {
-        if ($.is_state(setter)) {
-          $.set_state(setter, getters[index]);
-        }
-        index++;
-      }
-    },
-    [GET_VALUE](value) {
-      if ($.is_state(value)) {
-        return $.get_state(value);
-      }
-      return value;
-    },
-    [HYDRATE]: (_) => {
-    },
-    [CONDITIONAL](condition, deps, _if, _else) {
-      const conditional = new Conditional(condition, _if, _else);
-      for (const dep of deps) {
-        dep.mutations.push(conditional.update);
-      }
-      return conditional.create();
-    },
-    [LIST](result, deps) {
-      const list = new List(result);
-      for (const dep of deps) {
-        dep.mutations.push(list.update);
-      }
-      return list.create();
-    },
-    template: () => {
-      $.template = new Template($);
-      return $.template;
-    }
-  };
-  return $;
-}
+// plugin-rce/client/Template.ts
 var Template = class {
   $;
-  root;
+  current;
+  tree;
   constructor($) {
     this.$ = $;
+    this.tree = this.$[HYDRATE](this.object);
+    console.log(this.tree);
   }
+  object = (tag, props, ...children) => {
+    return new ObjectElement(tag, props, children);
+  };
   mount = (root) => {
-    this.root = root;
-    this.$[HYDRATE](this.render);
+    for (let child of this.tree.children) {
+      child = create_element(child);
+      root.append(child);
+    }
   };
-  render = (tag, props, ...children) => {
-    if (tag == this.root.localName) {
-      this.append(this.root, children);
-      return;
-    }
-    const element = document.createElement(tag);
-    if (props) {
-      for (const key in props) {
-        let value = props[key];
-        if (value instanceof Mutation) {
-          value.set_target("attr", element, key);
-          value = value.value;
-        }
-        if (key.startsWith("on")) {
-          element[key] = value;
-        } else {
-          element.setAttribute(key, value);
-        }
-      }
-    }
-    this.append(element, children);
-    return element;
-  };
-  append(element, children) {
-    let index = 0;
-    for (const child of children) {
-      if (child instanceof Mutation) {
-        child.set_target("node", element, index);
-        if (Array.isArray(child.value)) {
-          element.append(...child.value);
-        } else {
-          element.append(child.value);
-        }
-      } else {
-        element.append(child);
-      }
-      ++index;
-    }
-  }
+  // create = (tag: string, props: any, ...children: any) => {
+  //   // console.log(tag, props, children)
+  //   if (tag == this.root.localName) {
+  //     this.append(this.root, children);
+  //     return;
+  //   }
+  //   const element = document.createElement(tag);
+  //   if (props) {
+  //     for (const key in props) {
+  //       let value = props[key];
+  //       if (value instanceof Mutation) {
+  //         // value.set_target(el)
+  //         value.set_target('attr', element, key);
+  //         value = value.value
+  //       }
+  //       // console.log(key, value)
+  //       if (key.startsWith('on')) {
+  //         element[key] = value
+  //       } else {
+  //         element.setAttribute(key, value)
+  //       }
+  //     }
+  //   }
+  //   this.append(element, children);
+  //   return element;
+  // }
+  // append(element: HTMLElement, children: any[]) {
+  //   console.log(element, children)
+  //   let index = 0;
+  //   for (const child of children) {
+  //     if (child instanceof Conditional) {
+  //       child.set_target('node', element, index);
+  //     } else {
+  //       element.append(child);
+  //     }
+  //     ++index;
+  //   }
+  // }
 };
 var Mutation = class {
   value;
@@ -165,37 +98,46 @@ var Conditional = class {
     if: null,
     else: null
   };
-  constructor(condition, _if, _else = null) {
+  deps;
+  unregister = [];
+  constructor(condition, _if, _else = null, deps) {
     this.exec_condition = condition;
+    this.deps = deps;
     this.condition = condition();
     this.slot = new Comment("$");
-    const set_target = (type, target, index) => {
-      this.type = type;
-      this.target = target;
-      this.index = index;
-    };
-    this.node.if = new Mutation(_if, set_target);
-    this.node.else = new Mutation(_else || this.slot, set_target);
+    this.node.if = _if;
+    this.node.else = _else;
   }
-  create = () => {
-    this.condition = this.exec_condition();
-    if (this.condition) {
-      return this.node.if;
-    } else {
-      return this.node.else;
+  mount = () => {
+    for (const dep of this.deps) {
+      this.unregister.push(dep.register(this.update));
+    }
+    switch (this.type) {
+      case "node": {
+        this.target = this.condition ? create_element(this.node.if) : create_element(this.node.else);
+        return this.target;
+      }
+      case "attr":
+      case "event": {
+        return this.condition ? this.node.if : this.node.else;
+      }
+    }
+  };
+  unmount = () => {
+    for (const unregister of this.unregister) {
+      unregister();
     }
   };
   update = () => {
     const condition = this.exec_condition();
+    console.log("update");
     if (this.condition != condition) {
-      this.condition = condition;
-      const node = this.condition ? this.node.if : this.node.else;
-      if (this.type == "node") {
-        this.target.childNodes[this.index].replaceWith(node.value);
-      }
-      if (this.type == "attr") {
-        this.target[this.index] = node.value;
-      }
+    }
+  };
+  set_type = (type) => {
+    this.type = type;
+    if (type == "node" && this.node.else == null) {
+      this.node.else = this.slot;
     }
   };
 };
@@ -205,7 +147,7 @@ var List = class {
   node_list = [];
   target;
   child_index = 0;
-  constructor(result) {
+  constructor(result, deps) {
     this.result = result;
     this.slot = new Comment("$");
     this.node_list = this.result();
@@ -252,6 +194,160 @@ var List = class {
     target.append(...this.node_list);
   };
 };
+var ObjectElement = class {
+  tag;
+  props;
+  children;
+  constructor(tag, props, children) {
+    this.tag = tag;
+    this.props = props;
+    this.children = children;
+    for (const key in props ?? {}) {
+      const value = props[key];
+      if (value instanceof Conditional) {
+        if (key.startsWith("on")) {
+          value.type = "event";
+          console.log("EVENT", value);
+        } else {
+          value.type = "attr";
+        }
+      }
+    }
+    for (const child of children) {
+      if (child instanceof Conditional) {
+        child.set_type("node");
+      }
+      if (child instanceof List) {
+      }
+    }
+  }
+};
+function create_element(init, index = 0) {
+  switch (init.constructor) {
+    case Comment:
+      return init;
+    case String:
+      return new Text(init);
+    case ObjectElement: {
+      const { tag, props, children } = init;
+      const element = document.createElement(tag);
+      for (const key in props ?? {}) {
+        let value = props[key];
+        if (value instanceof Conditional) {
+          value = value.mount();
+        }
+        if (key.startsWith("on")) {
+          element[key] = value;
+        } else {
+          element.setAttribute(key, value);
+        }
+      }
+      let child_index = 0;
+      for (let child of children) {
+        child = create_element(child, child_index);
+        element.append(child);
+        ++child_index;
+      }
+      return element;
+    }
+    case Conditional: {
+      return init.mount();
+    }
+    case List: {
+    }
+  }
+}
+
+// plugin-rce/client/create.ts
+var REACTIVE = Symbol("react");
+function create(props) {
+  const $ = {
+    props,
+    state_map: [],
+    template: {},
+    state(value) {
+      const index = this.state_map.length;
+      this.state_map[index] = {
+        value,
+        index,
+        mutations: [],
+        $$type: REACTIVE,
+        register(notify) {
+          const index2 = this.mutations.push(notify) - 1;
+          return () => {
+            this.mutations.splice(index2, 1);
+          };
+        }
+      };
+      return this.state_map[index];
+    },
+    is_state(value) {
+      if (typeof value == "object" && value?.$$type == REACTIVE) return true;
+      return false;
+    },
+    get_state(value) {
+      return value.value;
+    },
+    set_state(state, value) {
+      this.state_map[state.index].value = value;
+      for (const update of this.state_map[state.index].mutations) {
+        update();
+      }
+    },
+    get(...getters) {
+      return getters.map((getter) => {
+        if (this.is_state(getter)) {
+          return this.get_state(getter);
+        }
+        return getter;
+      });
+    },
+    set(setters, getters) {
+      let index = 0;
+      for (const setter of setters) {
+        if (this.is_state(setter)) {
+          this.set_state(setter, getters[index]);
+        }
+        index++;
+      }
+    },
+    [GET_VALUE](value) {
+      if (this.is_state(value)) {
+        return this.get_state(value);
+      }
+      return value;
+    },
+    [HYDRATE](_) {
+    },
+    [CONDITIONAL](condition, deps, _if, _else) {
+      return new Conditional(condition, _if, _else, deps);
+    },
+    [LIST](result, deps) {
+      return new List(result, deps);
+    },
+    init() {
+      this.template = new Template(this);
+      return this.template;
+    },
+    register(reactive, notify) {
+      const index = reactive.mutations.push(notify) - 1;
+      return () => {
+        reactive.mutations.splice(index, 1);
+      };
+    }
+    // template: (() => {
+    //   $.template = new Template($);
+    //   return $.template;
+    // }) as any,
+  };
+  const ret = Object.assign((value) => {
+    if ($.is_state(value)) {
+      return $.get_state(value);
+    }
+    return value;
+  }, $);
+  return ret;
+}
 var create_default = create;
 
 // plugin-rce/client/defineElement.ts
@@ -265,7 +361,7 @@ function defineElement(component) {
       constructor() {
         super();
         const config = component({});
-        const template = config.template();
+        const template = config.init();
         instances.set(this, { config, template });
       }
       connectedCallback() {
@@ -280,345 +376,12 @@ function defineElement(component) {
 }
 var defineElement_default = defineElement;
 
-// plugin-rce/client/Template.ts
-var Template2 = class {
-  // mutations = new Mutations();
-  $ = {};
-  cache = new Cache_default(this);
-  // cached = new Map<number, (HTMLElement | ConditionalTemplate | ListTemplate)>();
-  // element_checked = new Set<number>();
-  constructor(config) {
-    this.$ = config;
-  }
-  init = () => {
-    this.cache.start();
-    this.$.h(this.init_cache);
-    this.$.update = this.update;
-  };
-  update = () => {
-    console.log("update", this);
-    this.cache.start();
-    this.$.h(this.h);
-  };
-  init_cache = (tag, props, ...children) => {
-    switch (tag) {
-      case "$if":
-        this.cache.set(new ConditionalTemplate(this.$, props, children[0]));
-        return;
-      case "$for":
-        this.cache.set(new ListTemplate(this.$, props, children[0]));
-        return;
-    }
-    this.check_mutations(props, children);
-    this.cache.next();
-  };
-  check_mutations(props, children) {
-    let node_index = 0;
-    for (const child of children) {
-      if (this.$.is_state(child)) {
-        this.cache.mutation({ type: "text_node", node_index });
-      }
-      node_index++;
-    }
-    this.cache.mutations_is_checked();
-  }
-  // cache = (element: HTMLElement | ConditionalTemplate | ListTemplate) => {
-  //   this.cached.set(this.index, element);
-  //   this.index++;
-  // }
-  // #region Hidrate
-  h = (tag, props, ...children) => {
-    if (tag == this.$.element_name) {
-      return children;
-    }
-    if (this.cache.has()) {
-      const element = this.cache.get();
-      if (is_directive(element)) {
-        if (this.$.is_state(props)) {
-          props = this.$.get_state(props);
-        }
-        const result = element.element(props);
-        this.cache.next();
-        return result;
-      }
-      if (this.cache.mutations_not_checked()) {
-        this.check_mutations(props, children);
-      }
-      if (this.cache.has_mutations()) {
-        this.cache.apply_mutation(this.$, element, props, children);
-      }
-      this.cache.next();
-      return element;
-    } else {
-      if (is_directive(tag)) {
-        const directive = tag == "$for" ? new ListTemplate(this.$, props, children[0]) : new ConditionalTemplate(this.$, props, children[0]);
-        this.cache.set(directive);
-        return directive.element(props);
-      }
-      return this.create_element(tag, props, children);
-    }
-  };
-  create_element = (tag, props, children) => {
-    const element = document.createElement(tag);
-    for (const [name, value] of Object.entries(props ?? {})) {
-      if (name.startsWith("on") && typeof value == "function") {
-        element[name] = value;
-      } else {
-        element.setAttribute(name, value);
-      }
-    }
-    for (const child of children) {
-      if (this.$.is_state(child)) {
-        element.append(this.$.get_state(child));
-      } else if (Array.isArray(child)) {
-        element.append(...child);
-      } else {
-        element.append(child);
-      }
-    }
-    this.cache.set(element);
-    return element;
-  };
-  append = (root) => {
-    this.cache.start();
-    const elements = this.$.h(this.h);
-    for (const element of elements) {
-      root.append(element);
-    }
-  };
-};
-var ConditionalTemplate = class extends Template2 {
-  type;
-  target;
-  condition;
-  placeholder;
-  render;
-  constructor($, condition, render) {
-    super($);
-    this.render = render;
-    this.placeholder = document.createComment("$if");
-    this.target = this.placeholder;
-    this.condition = condition;
-    this.cache.start();
-    this.render(this.init_cache);
-  }
-  element = (condition) => {
-    this.cache.start();
-    let result = this.render(this.h);
-    if (this.condition != condition) {
-      this.condition = condition;
-      if (condition) {
-        if (Array.isArray(result)) {
-          const fragment = new DocumentFragment();
-          fragment.append(...result);
-          this.target.replaceWith(fragment);
-        } else {
-          this.target.replaceWith(result);
-        }
-        this.target = result;
-      } else {
-        if (Array.isArray(result)) {
-          for (const element of result) {
-            if (!this.placeholder.isConnected) {
-              element.replaceWith(this.placeholder);
-            } else {
-              element.remove();
-            }
-          }
-        } else {
-          this.target.replaceWith(this.placeholder);
-        }
-        this.target = this.placeholder;
-      }
-    }
-    return this.target;
-  };
-};
-var ListTemplate = class extends Template2 {
-  node_list = /* @__PURE__ */ new Map();
-  placeholder;
-  render;
-  fragment;
-  first_render = true;
-  constructor($, array, render) {
-    super($);
-    this.render = render;
-    this.placeholder = document.createComment("$for");
-    const item = this.$.is_state(array) ? this.$.create_state(array[0]) : array[0];
-    this.cache.start();
-    this.render(this.init_cache, item, 0, array);
-    this.node_list.set(0, this.placeholder);
-  }
-  element = (array) => {
-    const node_list = [];
-    const max_index = Math.max(array.length, this.node_list.size);
-    let last_element = this.node_list.get(0);
-    this.cache.start_list();
-    for (let index = 0; index < max_index; index++) {
-      if (index < array.length) {
-        const item = array[index];
-        this.cache.start();
-        const element = this.render(this.h, item, index, array);
-        if (this.node_list.has(index)) {
-          const dom_element = this.node_list.get(index);
-          if (!dom_element.isEqualNode(element)) {
-            dom_element.replaceWith(element);
-            this.node_list.set(index, element);
-            last_element = element;
-          } else {
-            last_element = dom_element;
-          }
-        } else {
-          this.node_list.set(index, element);
-          last_element.after(element);
-          last_element = element;
-        }
-        node_list.push(last_element);
-      } else {
-        if (this.node_list.size == 1) {
-          this.node_list.get(0).replaceWith(this.placeholder);
-          this.node_list.set(0, this.placeholder);
-        } else {
-          this.node_list.get(index).remove();
-          this.node_list.delete(index);
-        }
-      }
-      this.cache.next(true);
-    }
-    return node_list;
-  };
-};
-function is_directive(element) {
-  if (typeof element == "string") {
-    switch (element) {
-      case "$if":
-      case "$ternary":
-      case "$for":
-        return true;
-    }
-  }
-  return element instanceof ConditionalTemplate || element instanceof ListTemplate;
-}
-
-// plugin-rce/client/Cache.ts
-var Cache = class {
-  cached = /* @__PURE__ */ new Map();
-  mutations = new Mutations();
-  mutations_checked = /* @__PURE__ */ new Set();
-  cache_list = false;
-  index = 0;
-  list_index = 0;
-  constructor(instance) {
-    this.cache_list = instance instanceof ListTemplate;
-  }
-  set = (element) => {
-    if (this.cache_list) {
-      const cached = this.cached_list();
-      cached.set(this.index, element);
-      this.index++;
-      return;
-    }
-    this.cached.set(this.index, element);
-    this.index++;
-  };
-  next = (list_index = false) => {
-    if (list_index) {
-      this.list_index++;
-    } else {
-      this.index++;
-    }
-  };
-  has = () => {
-    if (this.cache_list) {
-      const cached = this.cached_list();
-      return cached.has(this.index);
-    }
-    return this.cached.has(this.index);
-  };
-  get = () => {
-    if (this.cache_list) {
-      const cached = this.cached_list();
-      return cached.get(this.index);
-    }
-    return this.cached.get(this.index);
-  };
-  start = () => {
-    this.index = 0;
-  };
-  start_list = () => {
-    this.list_index = 0;
-  };
-  set_list_index = (index) => {
-    this.list_index = index;
-  };
-  cached_list = () => {
-    if (!this.cached.has(this.list_index)) {
-      this.cached.set(this.list_index, /* @__PURE__ */ new Map());
-    }
-    return this.cached.get(this.list_index);
-  };
-  clear_list = () => {
-    if (this.cached.has(this.list_index)) {
-      this.cached.delete(this.list_index);
-    }
-  };
-  mutations_is_checked = () => {
-    this.mutations_checked.add(this.index);
-  };
-  mutations_not_checked = () => {
-    return !this.mutations_checked.has(this.index);
-  };
-  has_mutations = () => {
-    return this.mutations.has(this.index);
-  };
-  get_mutations = () => {
-    return this.mutations.get(this.index);
-  };
-  mutation = (mutation) => {
-    this.mutations.set(this.index, mutation);
-  };
-  apply_mutation = ($, element, props, child_nodes) => {
-    for (const mutation of this.mutations.get(this.index)) {
-      switch (mutation.type) {
-        case "text_node": {
-          const value = $[GET_VALUE](child_nodes[mutation.node_index]);
-          if (element.childNodes[mutation.node_index].textContent != value) {
-            element.childNodes[mutation.node_index].textContent = value;
-          }
-          break;
-        }
-      }
-    }
-  };
-};
-var Mutations = class {
-  mutations = /* @__PURE__ */ new Map();
-  set(index, mutation) {
-    if (this.mutations.has(index)) {
-      this.mutations.get(index).push(mutation);
-    } else {
-      this.mutations.set(index, [mutation]);
-    }
-  }
-  has(index) {
-    return this.mutations.has(index);
-  }
-  get(index) {
-    return this.mutations.get(index);
-  }
-};
-var Cache_default = Cache;
-
 // plugin-rce/client/hooks.ts
 function $state(init) {
   return init;
 }
 export {
   $state,
-  Cache_default as Cache,
-  ConditionalTemplate,
-  ListTemplate,
-  Template2 as Template,
   create_default as create,
   defineElement_default as defineElement,
   register_default as register

@@ -2,7 +2,6 @@
 
 import type { Config } from "./create";
 import { get_name } from "./register";
-import { Template } from "./Template";
 
 function defineElement(component: (props: any) => Config) {
 
@@ -23,7 +22,7 @@ function defineElement(component: (props: any) => Config) {
         super();
 
         const config = component({});
-        const template = config.template();
+        const template = config.init();
 
         // console.log(config)
 

@@ -1,378 +1,394 @@
-import Cache from "./Cache";
-import { Config } from "./create";
+import { HYDRATE } from "../constant";
+import { Config, Reactive } from "./create";
 
-type AnyObject = {
-  [key: string]: any;
-}
-
-type ConditionalTypes = '$if' | '$for';
-
-//#region Template
-
+// #region Template
 class Template {
 
-  // mutations = new Mutations();
-  $ = {} as Config;
+  $: Config;
+  current: Conditional;
+  tree: any;
 
-  cache = new Cache(this);
-
-  // cached = new Map<number, (HTMLElement | ConditionalTemplate | ListTemplate)>();
-  // element_checked = new Set<number>();
-
-  constructor(config: Config) {
-    this.$ = config;
+  constructor($: Config) {
+    this.$ = $;
+    this.tree = this.$[HYDRATE](this.object);
+    console.log(this.tree)
+    // this.analyze(tree);
   }
 
-  init = () => {
-    this.cache.start();
-    this.$.h(this.init_cache);
 
-    this.$.update = this.update;
+
+  object = (tag: string, props: any, ...children: any) => {
+
+    return new ObjectElement(tag, props, children)
+  }
+
+  mount = (root: HTMLElement) => {
+
+    for (let child of this.tree.children) {
+
+      child = create_element(child);
+      root.append(child);
+    }
+  }
+
+
+
+
+
+  // create = (tag: string, props: any, ...children: any) => {
+  //   // console.log(tag, props, children)
+  //   if (tag == this.root.localName) {
+
+  //     this.append(this.root, children);
+  //     return;
+  //   }
+
+  //   const element = document.createElement(tag);
+
+  //   if (props) {
+  //     for (const key in props) {
+
+  //       let value = props[key];
+
+  //       if (value instanceof Mutation) {
+  //         // value.set_target(el)
+
+  //         value.set_target('attr', element, key);
+
+  //         value = value.value
+  //       }
+
+
+  //       // console.log(key, value)
+
+  //       if (key.startsWith('on')) {
+  //         element[key] = value
+  //       } else {
+  //         element.setAttribute(key, value)
+  //       }
+  //     }
+  //   }
+
+
+  //   this.append(element, children);
+
+  //   return element;
+  // }
+
+  // append(element: HTMLElement, children: any[]) {
+
+  //   console.log(element, children)
+
+  //   let index = 0;
+  //   for (const child of children) {
+
+  //     if (child instanceof Conditional) {
+  //       child.set_target('node', element, index);
+
+  //     } else {
+  //       element.append(child);
+  //     }
+
+  //     ++index;
+  //   }
+
+  // }
+
+
+}
+
+type MutationSetTarget = (type: string, t: HTMLElement, index: string | number) => void
+
+class Mutation {
+  value: any;
+  set_target: MutationSetTarget = () => { };
+
+  constructor(value: any, set_target?: MutationSetTarget) {
+    this.value = value;
+    if (set_target) this.set_target = set_target;
+
+  }
+}
+
+// #region Conditional
+
+class Conditional {
+
+  exec_condition: () => boolean;
+  condition: boolean;
+  slot: Comment;
+  current: any;
+  target: Comment | HTMLElement;
+
+  index: number | string;
+
+  type: 'node' | 'attr' | 'event';
+
+  node = {
+    if: null,
+    else: null
+  }
+
+  deps: Reactive[];
+  unregister: Function[] = [];
+
+  constructor(condition: () => boolean, _if: any, _else = null, deps: Reactive[]) {
+
+    this.exec_condition = condition;
+    this.deps = deps;
+
+    this.condition = condition();
+
+    this.slot = new Comment('$')
+
+    this.node.if = _if;
+    this.node.else = _else;
+
+    // console.log(this.node)
+
+  }
+
+
+  mount = () => {
+
+    for (const dep of this.deps) {
+      this.unregister.push(dep.register(this.update));
+    }
+
+    switch (this.type) {
+
+      case "node": {
+
+        this.target = this.condition
+          ? create_element(this.node.if)
+          : create_element(this.node.else)
+
+        return this.target;
+      }
+      case "attr":
+      case "event": {
+        return this.condition
+          ? this.node.if
+          : this.node.else
+      }
+    }
+
+
+  }
+
+  unmount = () => {
+
+    for (const unregister of this.unregister) {
+      unregister()
+    }
+
   }
 
   update = () => {
-    console.log('update', this)
-    this.cache.start();
-    this.$.h(this.h);
-  }
+    const condition = this.exec_condition();
 
-  init_cache = (tag: string, props: AnyObject, ...children: any[]) => {
-
-    switch (tag) {
-      case "$if":
-        // case "$ternary":
-        // console.log(tag, props, children)
-        this.cache.set(new ConditionalTemplate(this.$, props as any, children[0]))
-        return;
-      case "$for":
-        this.cache.set(new ListTemplate(this.$, props as any, children[0]))
-        return;
-    }
-
-    this.check_mutations(props, children);
-    this.cache.next();
-  }
-
-  check_mutations(props: AnyObject, children: any[]) {
-
-    // ATTRIBUTES
-    // for (const attr_name in props) {
-    //   if (attr_name.startsWith('on')) return;
-    //   const attr_value = props[attr_name];
-    // }
-
-    // TEXT NODE
-    let node_index = 0;
-    for (const child of children) {
-
-      if (this.$.is_state(child)) {
-        this.cache.mutation({ type: 'text_node', node_index });
-      }
-
-      node_index++;
-    }
-
-    this.cache.mutations_is_checked();
-  }
-
-
-  // cache = (element: HTMLElement | ConditionalTemplate | ListTemplate) => {
-  //   this.cached.set(this.index, element);
-  //   this.index++;
-  // }
-
-  // #region Hidrate
-  h = (tag: string, props: AnyObject, ...children: any[]) => {
-
-    if (tag == this.$.element_name) {
-      return children;
-    }
-
-    // console.log(this.cache.index, tag)
-
-    if (this.cache.has()) {
-
-      const element = this.cache.get();
-
-      if (is_directive(element)) {
-
-        if (this.$.is_state(props)) {
-          props = this.$.get_state(props);
-        }
-
-        const result = element.element(props);
-
-        this.cache.next();
-
-        return result;
-      }
-
-      if (this.cache.mutations_not_checked()) {
-        // console.log('check mutation')
-        this.check_mutations(props, children);
-      }
-
-      if (this.cache.has_mutations()) {
-        this.cache.apply_mutation(this.$, element, props, children);
-      }
-
-      this.cache.next();
-
-      return element;
-
-    } else {
-
-      if (is_directive(tag)) {
-
-        const directive = tag == '$for'
-          ? new ListTemplate(this.$, props as any, children[0])
-          : new ConditionalTemplate(this.$, props as any, children[0]);
-
-        this.cache.set(directive);
-
-        return directive.element(props as any);
-      }
-
-      return this.create_element(tag, props, children);
-    }
-  }
-
-  create_element = (tag: string, props: AnyObject, children: HTMLElement[]) => {
-
-    const element = document.createElement(tag);
-
-    for (const [name, value] of Object.entries(props ?? {})) {
-
-      if (name.startsWith('on') && typeof value == 'function') {
-
-        element[name] = value;
-
-      } else {
-        element.setAttribute(name, value as string);
-      }
-    }
-
-    for (const child of children) {
-
-      if (this.$.is_state(child)) {
-        element.append(this.$.get_state(child));
-      } else if (Array.isArray(child)) {
-        element.append(...child)
-      } else {
-        element.append(child)
-      }
-
-    }
-
-    this.cache.set(element);
-
-    return element;
-  }
-
-
-  append = (root: HTMLElement) => {
-    this.cache.start();
-    const elements = this.$.h(this.h) as HTMLElement[];
-
-    for (const element of elements) {
-      root.append(element);
-    }
-
-  }
-
-
-
-}
-
-//#region Conditional
-
-class ConditionalTemplate extends Template {
-
-  type: ConditionalTypes;
-  target: HTMLElement | Comment;
-
-  condition: boolean;
-  placeholder: Comment;
-
-  render: (h: Function) => any;
-
-  constructor($: Config, condition: boolean, render: any) {
-    super($);
-
-    this.render = render;
-
-    this.placeholder = document.createComment('$if');
-    this.target = this.placeholder;
-    this.condition = condition;
-
-    this.cache.start();
-
-    this.render(this.init_cache);
-  }
-
-  element = (condition: boolean) => {
-
-    this.cache.start();
-
-    let result = this.render(this.h);
-
+    console.log('update')
     if (this.condition != condition) {
 
-      this.condition = condition;
-
-      if (condition) {
-
-        if (Array.isArray(result)) {
-
-          const fragment = new DocumentFragment();
-          fragment.append(...result);
-          this.target.replaceWith(fragment);
-        } else {
-
-          this.target.replaceWith(result);
-        }
-
-        this.target = result;
-      } else {
-
-        if (Array.isArray(result)) {
-
-          for (const element of result) {
-            if (!this.placeholder.isConnected) {
-              element.replaceWith(this.placeholder);
-            } else {
-              element.remove();
-            }
-          }
-
-        } else {
-          this.target.replaceWith(this.placeholder);
-        }
-        this.target = this.placeholder;
-      }
     }
 
-    return this.target;
   }
+
+  set_type = (type: Conditional['type']) => {
+
+    this.type = type;
+
+    if (type == 'node' && this.node.else == null) {
+      this.node.else = this.slot
+    }
+
+  }
+
 
 }
 
-//#endregion
-//#region List
+class List {
 
-type ListRender = (h: Function, item?: any, index?: number, array?: any[]) => HTMLElement;
+  result: Function;
+  slot: Comment;
+  node_list: any[] = [];
 
-class ListTemplate extends Template {
+  target: Comment | HTMLElement;
+  child_index = 0;
 
-  node_list = new Map<number, HTMLElement | Comment>();
+  constructor(result: Function, deps: Reactive[]) {
+    this.result = result;
+    this.slot = new Comment('$')
 
-  placeholder: Comment;
-  render: ListRender;
+    this.node_list = this.result();
 
-  fragment: DocumentFragment;
-  first_render = true;
-
-  constructor($: Config, array: any[], render: ListRender) {
-    super($);
-
-    this.render = render;
-
-    this.placeholder = document.createComment('$for');
-
-    const item = this.$.is_state(array)
-      ? this.$.create_state(array[0])
-      : array[0]
-
-    this.cache.start();
-    this.render(this.init_cache, item, 0, array);
-
-    this.node_list.set(0, this.placeholder);
+    if (this.node_list.length == 0) {
+      this.node_list[0] = this.slot;
+    }
 
   }
 
-  element = (array: any[]) => {
+  create = () => {
+    return new Mutation(this.node_list)
+  }
 
-    const node_list: (HTMLElement | Comment)[] = [];
+  update = () => {
+    const node_list = this.result();
 
-    const max_index = Math.max(array.length, this.node_list.size);
-    let last_element: HTMLElement | Comment = this.node_list.get(0);
-
-    this.cache.start_list();
+    const max_index = Math.max(node_list.length, this.node_list.length);
+    let last_element: HTMLElement | Comment = this.node_list[0];
 
     for (let index = 0; index < max_index; index++) {
 
-      if (index < array.length) {
+      const element = node_list[index];
 
-        const item = array[index];
+      if (index < node_list.length) {
 
-        this.cache.start()
-        const element = this.render(this.h, item, index, array);
+        if (this.node_list[index]) {
 
-        if (this.node_list.has(index)) {
-
-          const dom_element = this.node_list.get(index);
+          const dom_element = this.node_list[index];
 
           if (!dom_element.isEqualNode(element)) {
-            // replace element
+            // replace item
             dom_element.replaceWith(element);
-            this.node_list.set(index, element);
+            this.node_list[index] = element;
 
             last_element = element;
           } else {
-            // keep element
+            // keep item
             last_element = dom_element;
           }
 
         } else {
-          // add element
-          this.node_list.set(index, element);
+          // add item
+          this.node_list[index] = element;
           last_element.after(element);
           last_element = element;
         }
 
-        node_list.push(last_element)
-
       } else {
-        // remove element from DOM
+        // remove item
 
-        if (this.node_list.size == 1) {
-
-          this.node_list.get(0).replaceWith(this.placeholder);
-          this.node_list.set(0, this.placeholder);
+        if (this.node_list.length == 1) {
+          this.node_list[0].replaceWith(this.slot);
+          this.node_list[0] = this.slot;
         } else {
-
-          this.node_list.get(index).remove();
-          this.node_list.delete(index)
+          this.node_list[index].remove();
+          this.node_list.splice(index, 1);
         }
-      }
 
-      this.cache.next(true);
+      }
     } // end for
 
-    return node_list;
+    //
+  }
 
+  mutation = (target: HTMLElement) => {
+    target.append(...this.node_list);
   }
 
 }
 
+// #region ObjectElement
 
-function is_directive(element: any) {
+class ObjectElement {
 
-  if (typeof element == 'string') {
+  tag: string;
+  props: any;
+  children: any[]
 
-    switch (element) {
-      case '$if':
-      case '$ternary':
-      case '$for':
-        return true;
+  constructor(tag: string, props: any, children: any[]) {
+
+    this.tag = tag;
+    this.props = props;
+    this.children = children;
+
+    for (const key in (props ?? {})) {
+
+      const value = props[key];
+
+      if (value instanceof Conditional) {
+
+        if (key.startsWith('on')) {
+          value.type = 'event';
+          console.log('EVENT', value)
+        } else {
+          value.type = 'attr';
+        }
+        // directives.push(value)
+      }
+    }
+
+    for (const child of children) {
+
+      if (child instanceof Conditional) {
+        child.set_type('node')
+
+        // directives.push(child)
+      }
+
+      if (child instanceof List) {
+        // directives.push(child)
+      }
+
+    }
+  }
+}
+
+function create_element(init: any, index = 0) {
+
+  switch (init.constructor) {
+
+    case Comment:
+      return init;
+
+    case String:
+      return new Text(init);
+
+    case ObjectElement: {
+
+      const { tag, props, children } = init;
+
+      const element = document.createElement(tag);
+
+      for (const key in (props ?? {})) {
+
+        let value = props[key];
+
+        if (value instanceof Conditional) {
+          value = value.mount()
+        }
+
+        if (key.startsWith('on')) {
+          element[key] = value;
+        } else {
+          element.setAttribute(key, value);
+        }
+
+      }
+
+      let child_index = 0;
+      for (let child of children) {
+        child = create_element(child, child_index);
+        element.append(child);
+
+        ++child_index;
+      }
+
+      return element;
+    }
+    case Conditional: {
+      return init.mount();
+    }
+    case List: {
+
     }
   }
 
-  return element instanceof ConditionalTemplate || element instanceof ListTemplate;
 }
 
 export {
   Template,
-  ConditionalTemplate,
-  ListTemplate,
+  Conditional,
+  List
 }

@@ -30,20 +30,20 @@ function transform_jsx(_node: ReactiveNode, jsx: acorn.CallExpression) {
 }
 
 
-function transform_condition(condition: string) {
+// function transform_condition(condition: string) {
 
-  transform_condition.transformed = false;
+//   transform_condition.transformed = false;
 
-  return condition.replace(
-    $node.reactive_keys_reg,
-    (match) => {
-      transform_condition.transformed = true;
-      return `${CONFIG_ID}.${GET_VALUE}(${match})`
-    }
-  )
-}
+//   return condition.replace(
+//     $node.reactive_keys_reg,
+//     (match) => {
+//       transform_condition.transformed = true;
+//       return `${CONFIG_ID}.${GET_VALUE}(${match})`
+//     }
+//   )
+// }
 
-transform_condition.transformed = false;
+// transform_condition.transformed = false;
 
 
 function transform_factory(h_node: acorn.AnyNode) {
@@ -93,7 +93,7 @@ function transform_factory(h_node: acorn.AnyNode) {
           Identifier(id) {
             if ($node.state.has(id.name)) {
               deps.add(id.name);
-              Transformer.wrap(id, `${CONFIG_ID}.${GET_VALUE}(`, ')')
+              Transformer.wrap(id, `${CONFIG_ID}(`, ')')
             }
           }
         })
@@ -135,12 +135,13 @@ function transform_factory(h_node: acorn.AnyNode) {
         Identifier(id) {
           if ($node.state.has(id.name)) {
             deps.add(id.name);
-            Transformer.wrap(id, `${CONFIG_ID}.${GET_VALUE}(`, ')')
+            Transformer.wrap(id, `${CONFIG_ID}(`, ')')
           }
         }
       })
 
       const deps_string = [...deps].join(',')
+
 
       Transformer.insert(h_node.left.end, `,[${deps_string}]`)
 
@@ -201,7 +202,7 @@ function conditional_expr(
     Identifier(id) {
       if ($node.state.has(id.name)) {
         deps.add(id.name);
-        Transformer.wrap(id, `${CONFIG_ID}.${GET_VALUE}(`, ')')
+        Transformer.wrap(id, `${CONFIG_ID}(`, ')')
       }
     }
   })

@@ -41,6 +41,6 @@ export const Component = ({ title = "hello rce" }) => {
     console.log("show", show);
   }
   const props = {};
-  return /* @__PURE__ */ h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class: show ? "show" : "hidden" }, /* @__PURE__ */ h("button", { onclick: toggle }, "toggle"), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus")), show ? /* @__PURE__ */ h("div", null, array.length > 0 ? "full" : "empty") : "hidden", show && /* @__PURE__ */ h("div", null, array.length > 0 && "array is greater than 0"), array.map((i) => /* @__PURE__ */ h("div", null, "item - ", i, i == 2 && /* @__PURE__ */ h("div", null, "condition by param"), show ? /* @__PURE__ */ h("div", null, "show") : "hidden")));
+  return /* @__PURE__ */ h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class: show ? "show" : "hidden" }, /* @__PURE__ */ h("button", { onclick: toggle }, "toggle"), /* @__PURE__ */ h("button", { onclick: show ? add : minus }, show ? "add" : "minus"), /* @__PURE__ */ h("button", { onclick: show ? add : null }, show ? "add" : "nothing", " ", show && "add something")), !show && /* @__PURE__ */ h("div", null, array.length > 0 && /* @__PURE__ */ h("div", null, "nested", array.length > 1 && /* @__PURE__ */ h("div", null, "neested 1"))));
 };
 defineElement(Component);

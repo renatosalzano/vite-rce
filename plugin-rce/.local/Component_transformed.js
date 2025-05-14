@@ -59,13 +59,15 @@ $.set([show], [_show]);
 }
   const props = {};
   return /* @__PURE__ */ $.h = (h) =>h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class:
-$.if(()=> $.v(show),[show] , "show" , "hidden") }, /* @__PURE__ */ h("button", { onclick: toggle }, "toggle"), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "minus")),
-$.if(()=> $.v(show),[show] , /* @__PURE__ */ h("div", null,
-$.if(()=> $.v(array).length > 0,[array] , "full" , "empty")) , "hidden"), 
-$.if(()=>$.v(show),[show] , /* @__PURE__ */ h("div", null, 
-$.if(()=>$.v(array).length > 0,[array] , "array is greater than 0"))), $.for(()=>$.v(array).map((i) => /* @__PURE__ */ h("div", null, "item - ", i, 
-$.if(()=>i == 2,[] , /* @__PURE__ */ h("div", null, "condition by param")),
-$.if(()=> $.v(show),[show] , /* @__PURE__ */ h("div", null, "show") , "hidden"))), [array])), $;
+$.i(()=> $(show),[show] , "show" , "hidden") }, /* @__PURE__ */ h("button", { onclick: toggle }, "toggle"), /* @__PURE__ */ h("button", { onclick:
+$.i(()=> $(show),[show] , add , minus) },
+$.i(()=> $(show),[show] , "add" , "minus")), /* @__PURE__ */ h("button", { onclick:
+$.i(()=> $(show),[show] , add , null) },
+$.i(()=> $(show),[show] , "add" , "nothing"), " ", 
+$.i(()=>$(show),[show] , "add something"))), 
+$.i(()=>!$(show),[show] , /* @__PURE__ */ h("div", null, 
+$.i(()=>$(array).length > 0,[array] , /* @__PURE__ */ h("div", null, "nested", 
+$.i(()=>$(array).length > 1,[array] , /* @__PURE__ */ h("div", null, "neested 1"))))))), $;
 }
 register(Component, 'my-component');
 ;
