@@ -1,13 +1,11 @@
-import { CONDITIONAL, GET_VALUE, HYDRATE, LIST } from "../constant";
-import { Conditional, List, Template } from "./Template";
+import { HYDRATE } from "../constant";
+import { Template } from "./Template";
 
 const REACTIVE = Symbol('react');
 
 export type Reactive = {
   value: any;
   index: number;
-  mutations: Function[];
-  register(notify: () => void): () => void;
   $$type: Symbol;
 }
 
@@ -29,14 +27,7 @@ function create(props: { [key: string]: any }) {
       this.state_map[index] = {
         value,
         index,
-        mutations: [],
-        $$type: REACTIVE,
-        register(notify) {
-          const index = this.mutations.push(notify) - 1;
-          return () => {
-            this.mutations.splice(index, 1);
-          }
-        }
+        $$type: REACTIVE
       }
 
       return this.state_map[index];
@@ -54,24 +45,22 @@ function create(props: { [key: string]: any }) {
     set_state(state: any, value: any) {
       this.state_map[state.index].value = value;
 
-      // console.log('update', $.state_map[state.index])
-
-      for (const update of this.state_map[state.index].mutations) {
-        update();
-      }
-
     },
 
-    get(...getters: any[]) {
+    get(getters: any[]) {
 
-      return getters.map((getter) => {
+      const self_ = this;
 
-        if (this.is_state(getter)) {
-          return this.get_state(getter)
+      const ret = getters.map((getter) => {
+
+        if (self_.is_state(getter)) {
+          return self_.get_state(getter)
         }
 
         return getter;
       })
+
+      return ret;
     },
 
     set(setters: any[], getters: []) {
@@ -85,39 +74,29 @@ function create(props: { [key: string]: any }) {
         index++;
       }
 
-    },
-
-    [GET_VALUE](value: any) {
-      if (this.is_state(value)) {
-        return this.get_state(value);
-      }
-      return value;
-    },
-
-    [HYDRATE](_: Function) { },
-
-    [CONDITIONAL](condition: () => boolean, deps: Reactive[], _if: any, _else?: any) {
-
-      return new Conditional(condition, _if, _else, deps);
-    },
-
-    [LIST](result: Function, deps: Reactive[]) {
-
-      return new List(result, deps);
+      this.render()
 
     },
 
-    init() {
-      this.template = new Template(this);
+    [HYDRATE](_: Function) { return [] },
+
+    // [CONDITIONAL](condition: () => boolean, _if: any, _else?: any) {
+
+    //   return new Conditional(condition, _if, _else, deps);
+    // },
+
+    // [LIST](result: Function, deps: Reactive[]) {
+
+    //   return new List(result, deps);
+
+    // },
+
+    init(root: HTMLElement) {
+      this.template = new Template(this, root);
       return this.template;
     },
 
-    register(reactive: Reactive, notify: Function) {
-      const index = reactive.mutations.push(notify) - 1;
-      return () => {
-        reactive.mutations.splice(index, 1);
-      }
-    }
+    render() { }
 
     // template: (() => {
     //   $.template = new Template($);
@@ -126,6 +105,11 @@ function create(props: { [key: string]: any }) {
   }
 
   const ret = Object.assign((value: any) => {
+
+    if (Array.isArray(value)) {
+      return $.get(value);
+    }
+
     if ($.is_state(value)) {
       return $.get_state(value);
     }

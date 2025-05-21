@@ -1,7 +1,6 @@
 // plugin-rce/client/register.ts
 var cache = /* @__PURE__ */ new WeakMap();
 function register(custom_element, name) {
-  console.log(custom_element);
   cache.set(custom_element, name);
 }
 function get_name(custom_element) {
@@ -10,251 +9,212 @@ function get_name(custom_element) {
 var register_default = register;
 
 // plugin-rce/constant.ts
-var CONFIG_ID = "$";
 var HOOK_START = "$";
 var STATE = `${HOOK_START}state`;
-var TEMPLATE_CONDITIONAL_EXPRESSION = `${CONFIG_ID}.ce`;
-var GET_VALUE = "v";
 var HYDRATE = "h";
-var CONDITIONAL = "i";
-var LIST = "f";
 
 // plugin-rce/client/Template.ts
 var Template = class {
   $;
-  current;
-  tree;
-  constructor($) {
+  root;
+  vdom = [];
+  dom = [];
+  last_element = null;
+  mounted = false;
+  constructor($, root) {
+    $.render = this.render;
     this.$ = $;
-    this.tree = this.$[HYDRATE](this.object);
-    console.log(this.tree);
+    this.root = root;
   }
   object = (tag, props, ...children) => {
-    return new ObjectElement(tag, props, children);
+    return new Element(tag, props, children);
   };
-  mount = (root) => {
-    for (let child of this.tree.children) {
-      child = create_element(child);
-      root.append(child);
-    }
-  };
-  // create = (tag: string, props: any, ...children: any) => {
-  //   // console.log(tag, props, children)
-  //   if (tag == this.root.localName) {
-  //     this.append(this.root, children);
-  //     return;
-  //   }
-  //   const element = document.createElement(tag);
-  //   if (props) {
-  //     for (const key in props) {
-  //       let value = props[key];
-  //       if (value instanceof Mutation) {
-  //         // value.set_target(el)
-  //         value.set_target('attr', element, key);
-  //         value = value.value
-  //       }
-  //       // console.log(key, value)
-  //       if (key.startsWith('on')) {
-  //         element[key] = value
-  //       } else {
-  //         element.setAttribute(key, value)
-  //       }
-  //     }
-  //   }
-  //   this.append(element, children);
-  //   return element;
-  // }
-  // append(element: HTMLElement, children: any[]) {
-  //   console.log(element, children)
-  //   let index = 0;
-  //   for (const child of children) {
-  //     if (child instanceof Conditional) {
-  //       child.set_target('node', element, index);
-  //     } else {
-  //       element.append(child);
-  //     }
-  //     ++index;
-  //   }
-  // }
-};
-var Mutation = class {
-  value;
-  set_target = () => {
-  };
-  constructor(value, set_target) {
-    this.value = value;
-    if (set_target) this.set_target = set_target;
-  }
-};
-var Conditional = class {
-  exec_condition;
-  condition;
-  slot;
-  current;
-  target;
-  index;
-  type;
-  node = {
-    if: null,
-    else: null
-  };
-  deps;
-  unregister = [];
-  constructor(condition, _if, _else = null, deps) {
-    this.exec_condition = condition;
-    this.deps = deps;
-    this.condition = condition();
-    this.slot = new Comment("$");
-    this.node.if = _if;
-    this.node.else = _else;
-  }
-  mount = () => {
-    for (const dep of this.deps) {
-      this.unregister.push(dep.register(this.update));
-    }
-    switch (this.type) {
-      case "node": {
-        this.target = this.condition ? create_element(this.node.if) : create_element(this.node.else);
-        return this.target;
-      }
-      case "attr":
-      case "event": {
-        return this.condition ? this.node.if : this.node.else;
+  render = () => {
+    this.vdom = this.$[HYDRATE](this.object);
+    for (let i = 0; i < this.vdom.length; i++) {
+      let element = this.vdom[i];
+      if (this.mounted) {
+        this.dom[i] = this.update(this.dom[i], element, this.root, i);
+      } else {
+        this.dom[i] = this.create(element);
+        this.append(this.root, this.dom[i]);
       }
     }
+    this.mounted = true;
   };
-  unmount = () => {
-    for (const unregister of this.unregister) {
-      unregister();
+  create = (item) => {
+    switch (item.constructor) {
+      case Element: {
+        const { tag, props, events, children } = item;
+        const element = document.createElement(tag);
+        for (const key in props) {
+          element.setAttribute(key, props[key]);
+        }
+        for (const key in events) {
+          element[key] = events[key];
+        }
+        for (const child of children) {
+          this.append(element, this.create(child));
+        }
+        return element;
+      }
+      case Number:
+      case String: {
+        return item;
+      }
+      case Array: {
+        return item.map((e) => this.create(e));
+      }
+      default:
+        return null;
     }
   };
-  update = () => {
-    const condition = this.exec_condition();
-    console.log("update");
-    if (this.condition != condition) {
-    }
-  };
-  set_type = (type) => {
-    this.type = type;
-    if (type == "node" && this.node.else == null) {
-      this.node.else = this.slot;
-    }
-  };
-};
-var List = class {
-  result;
-  slot;
-  node_list = [];
-  target;
-  child_index = 0;
-  constructor(result, deps) {
-    this.result = result;
-    this.slot = new Comment("$");
-    this.node_list = this.result();
-    if (this.node_list.length == 0) {
-      this.node_list[0] = this.slot;
-    }
-  }
-  create = () => {
-    return new Mutation(this.node_list);
-  };
-  update = () => {
-    const node_list = this.result();
-    const max_index = Math.max(node_list.length, this.node_list.length);
-    let last_element = this.node_list[0];
-    for (let index = 0; index < max_index; index++) {
-      const element = node_list[index];
-      if (index < node_list.length) {
-        if (this.node_list[index]) {
-          const dom_element = this.node_list[index];
-          if (!dom_element.isEqualNode(element)) {
-            dom_element.replaceWith(element);
-            this.node_list[index] = element;
-            last_element = element;
-          } else {
-            last_element = dom_element;
+  update = (prev, curr, parent, index) => {
+    switch (curr.constructor) {
+      case Element: {
+        if (prev == null) {
+          const res = this.create(curr);
+          this.append_at(parent, res, index);
+          return res;
+        }
+        if (is_text_node(prev)) {
+          console.log("replace this", prev, curr);
+          prev.replaceWith(this.create(curr));
+          return prev;
+        }
+        if (is_html(prev)) {
+          const { props, events, children } = curr;
+          for (const attr of prev.attributes) {
+            if (attr.name in props) {
+              prev.setAttribute(attr.name, props[attr.name]);
+            } else {
+              prev.removeAttribute(attr.name);
+            }
+          }
+          for (const key in events) {
+            prev[key] = typeof events[key] == "function" ? events[key] : null;
+          }
+          const max = Math.max(prev.childNodes.length - 1, children.length);
+          for (let i = 0; i < max; i++) {
+            const prev_node = prev.childNodes[i] || null;
+            this.update(prev_node, children[i], prev, i);
+          }
+        }
+        return prev;
+      }
+      case Array: {
+        let index_offset = 0;
+        if (is_node(prev[0])) {
+          for (const child of parent.childNodes) {
+            if (child.isSameNode(prev[0])) {
+              break;
+            }
+            index_offset++;
           }
         } else {
-          this.node_list[index] = element;
-          last_element.after(element);
-          last_element = element;
+          index_offset = parent.childNodes.length;
         }
-      } else {
-        if (this.node_list.length == 1) {
-          this.node_list[0].replaceWith(this.slot);
-          this.node_list[0] = this.slot;
+        const dom_list = prev;
+        const max = Math.max(curr.length, dom_list.length);
+        for (let i = 0; i < max; i++) {
+          if (i < curr.length) {
+            prev[i] = this.update(prev[i] || null, curr[i], parent, index_offset + i);
+          } else {
+            prev[i].remove();
+            dom_list.splice(i, 1);
+          }
+        }
+        return prev;
+      }
+      case Number:
+      case String: {
+        if (is_html(prev)) {
+          console.log("replace text node");
+          prev.replaceWith(new Text(curr));
+          break;
+        }
+        if (is_text_node(prev)) {
+          if (prev.nodeValue != curr) {
+            console.log("update text node", curr);
+            prev.nodeValue = curr;
+          }
         } else {
-          this.node_list[index].remove();
-          this.node_list.splice(index, 1);
+          this.append_at(parent, curr, index);
+        }
+        break;
+      }
+      case Boolean: {
+        if (is_node(prev)) {
+          prev.remove();
+          return null;
         }
       }
     }
   };
-  mutation = (target) => {
-    target.append(...this.node_list);
+  update_element = (prev, curr, parent) => {
+  };
+  update_list = (prev, curr) => {
+  };
+  append(element, node) {
+    if (node == null) return;
+    if (Array.isArray(node)) {
+      for (const n of node) {
+        element.append(n);
+      }
+    } else {
+      element.append(node);
+    }
+  }
+  append_at = (element, children, index) => {
+    if (element.childNodes.length > 0) {
+      let prev_element;
+      while (index > 0) {
+        const item = element.childNodes[index - 1];
+        if (is_node(item)) {
+          prev_element = item;
+          break;
+        }
+        index--;
+      }
+      prev_element.after(children);
+    } else {
+      element.append(children);
+    }
   };
 };
-var ObjectElement = class {
+var Element = class {
   tag;
-  props;
+  props = {};
+  events = {};
   children;
-  constructor(tag, props, children) {
+  constructor(tag, props = {}, children) {
     this.tag = tag;
-    this.props = props;
     this.children = children;
-    for (const key in props ?? {}) {
-      const value = props[key];
-      if (value instanceof Conditional) {
-        if (key.startsWith("on")) {
-          value.type = "event";
-          console.log("EVENT", value);
-        } else {
-          value.type = "attr";
-        }
-      }
-    }
-    for (const child of children) {
-      if (child instanceof Conditional) {
-        child.set_type("node");
-      }
-      if (child instanceof List) {
+    for (const key in props) {
+      if (key.startsWith("on")) {
+        this.events[key] = props[key];
+      } else {
+        this.props[key] = props[key];
       }
     }
   }
 };
-function create_element(init, index = 0) {
-  switch (init.constructor) {
-    case Comment:
-      return init;
-    case String:
-      return new Text(init);
-    case ObjectElement: {
-      const { tag, props, children } = init;
-      const element = document.createElement(tag);
-      for (const key in props ?? {}) {
-        let value = props[key];
-        if (value instanceof Conditional) {
-          value = value.mount();
-        }
-        if (key.startsWith("on")) {
-          element[key] = value;
-        } else {
-          element.setAttribute(key, value);
-        }
-      }
-      let child_index = 0;
-      for (let child of children) {
-        child = create_element(child, child_index);
-        element.append(child);
-        ++child_index;
-      }
-      return element;
-    }
-    case Conditional: {
-      return init.mount();
-    }
-    case List: {
-    }
+function is_object(value) {
+  return value instanceof Object;
+}
+function is_html(value) {
+  if (is_object(value) && value?.nodeType == 1) {
+    return value;
+  }
+}
+function is_text_node(value) {
+  if (is_object(value) && value?.nodeType == 3) {
+    return value;
+  }
+}
+function is_node(value) {
+  if (is_object(value) && "nodeType" in value) {
+    return value;
   }
 }
 
@@ -270,14 +230,7 @@ function create(props) {
       this.state_map[index] = {
         value,
         index,
-        mutations: [],
-        $$type: REACTIVE,
-        register(notify) {
-          const index2 = this.mutations.push(notify) - 1;
-          return () => {
-            this.mutations.splice(index2, 1);
-          };
-        }
+        $$type: REACTIVE
       };
       return this.state_map[index];
     },
@@ -290,17 +243,16 @@ function create(props) {
     },
     set_state(state, value) {
       this.state_map[state.index].value = value;
-      for (const update of this.state_map[state.index].mutations) {
-        update();
-      }
     },
-    get(...getters) {
-      return getters.map((getter) => {
-        if (this.is_state(getter)) {
-          return this.get_state(getter);
+    get(getters) {
+      const self_ = this;
+      const ret2 = getters.map((getter) => {
+        if (self_.is_state(getter)) {
+          return self_.get_state(getter);
         }
         return getter;
       });
+      return ret2;
     },
     set(setters, getters) {
       let index = 0;
@@ -310,30 +262,22 @@ function create(props) {
         }
         index++;
       }
-    },
-    [GET_VALUE](value) {
-      if (this.is_state(value)) {
-        return this.get_state(value);
-      }
-      return value;
+      this.render();
     },
     [HYDRATE](_) {
+      return [];
     },
-    [CONDITIONAL](condition, deps, _if, _else) {
-      return new Conditional(condition, _if, _else, deps);
-    },
-    [LIST](result, deps) {
-      return new List(result, deps);
-    },
-    init() {
-      this.template = new Template(this);
+    // [CONDITIONAL](condition: () => boolean, _if: any, _else?: any) {
+    //   return new Conditional(condition, _if, _else, deps);
+    // },
+    // [LIST](result: Function, deps: Reactive[]) {
+    //   return new List(result, deps);
+    // },
+    init(root) {
+      this.template = new Template(this, root);
       return this.template;
     },
-    register(reactive, notify) {
-      const index = reactive.mutations.push(notify) - 1;
-      return () => {
-        reactive.mutations.splice(index, 1);
-      };
+    render() {
     }
     // template: (() => {
     //   $.template = new Template($);
@@ -341,6 +285,9 @@ function create(props) {
     // }) as any,
   };
   const ret = Object.assign((value) => {
+    if (Array.isArray(value)) {
+      return $.get(value);
+    }
     if ($.is_state(value)) {
       return $.get_state(value);
     }
@@ -354,20 +301,19 @@ var create_default = create;
 function defineElement(component) {
   const name = get_name(component);
   const instances = /* @__PURE__ */ new WeakMap();
-  console.log("define", name);
   window.customElements.define(
     name,
     class extends HTMLElement {
       constructor() {
         super();
         const config = component({});
-        const template = config.init();
+        const template = config.init(this);
         instances.set(this, { config, template });
       }
       connectedCallback() {
         console.log("mounted");
         const { template } = instances.get(this);
-        template.mount(this);
+        template.render();
       }
       setProps(props) {
       }
@@ -382,6 +328,7 @@ function $state(init) {
 }
 export {
   $state,
+  Template,
   create_default as create,
   defineElement_default as defineElement,
   register_default as register

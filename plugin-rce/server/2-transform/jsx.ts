@@ -1,4 +1,4 @@
-import { CONDITIONAL, CONFIG_ID, CREATE_REACTIVE_VALUE, GET_VALUE, HYDRATE, LIST } from "../../constant";
+import { CONDITIONAL, CONFIG_ID, HYDRATE, LIST } from "../../constant";
 
 import {
   acorn,
@@ -21,11 +21,57 @@ function transform_jsx(_node: ReactiveNode, jsx: acorn.CallExpression) {
 
   const [_literal, _attributes, ...children] = jsx.arguments as [acorn.Literal, any, acorn.AnyNode];
 
-  Transformer.insert(jsx.start, `${CONFIG_ID}.${HYDRATE} = (h) =>`)
+  // print(jsx)
 
-  for (const child of children) {
-    transform_factory(child)
-  }
+
+  const state_keys = [...$node.state];
+  const state_getters = state_keys.join(',')
+  const state_values = state_keys.map((v) => `_${v}`).join(',')
+
+  Transformer.insert(jsx.start, `${CONFIG_ID}.${HYDRATE} = (h) => {\nconst [${state_values}] = ${CONFIG_ID}([${state_getters}]);\nreturn `)
+  Transformer.replace({
+    start: jsx.start,
+    end: _attributes.end + 1
+  }, '[')
+
+  print(Transformer.slice(jsx.end - 1, jsx.end))
+
+  walk(jsx, {
+    Identifier(id) {
+      if ($node.state.has(id.name)) {
+        Transformer.insert(id.start, '_')
+      }
+    },
+    // ConditionalExpression(node) {
+
+    //   Transformer.insert(node.start - 1, `\n${CONFIG_ID}.${CONDITIONAL}(()=>`)
+
+    //   const consequent_start = Transformer.index_from(node.test.end, '?')
+    //   const alternate_start = Transformer.index_from(node.consequent.end, ':')
+
+    //   Transformer.replace({ start: consequent_start, end: consequent_start + 1 }, ',')
+    //   Transformer.replace({ start: alternate_start, end: alternate_start + 1 }, ',')
+    //   Transformer.insert(node.end, ')')
+
+    // },
+    // LogicalExpression(node) {
+
+    //   Transformer.insert(node.start, `\n${CONFIG_ID}.${CONDITIONAL}(()=>`)
+
+    //   const operator_start = Transformer.index_from(node.left.end, node.operator);
+
+    //   Transformer.replace({
+    //     start: operator_start,
+    //     end: operator_start + node.operator.length
+    //   }, ',')
+
+    //   Transformer.insert(node.end, ')');
+    // }
+  })
+
+  // Transformer.insert(jsx.end - 1, ``)
+  Transformer.replace({ start: jsx.end - 1, end: jsx.end }, ']')
+  Transformer.insert(jsx.end, `}`)
 
 }
 
@@ -67,10 +113,7 @@ function transform_factory(h_node: acorn.AnyNode) {
         // print(attributes)
         if (attributes) {
 
-          for (const property of attributes) {
-            transform_factory(property.value)
-          }
-
+          transform_props(attributes)
         }
 
 
@@ -145,8 +188,6 @@ function transform_factory(h_node: acorn.AnyNode) {
 
       Transformer.insert(h_node.left.end, `,[${deps_string}]`)
 
-      // const condition = transform_condition(Transformer.node(h_node.left));
-
       const operator_start = Transformer.index_from(h_node.left.end, h_node.operator);
 
       Transformer.replace({
@@ -177,9 +218,17 @@ function transform_factory(h_node: acorn.AnyNode) {
         }
       )
 
-
       break;
     }
+  }
+
+}
+
+
+function transform_props(properties: (acorn.SpreadElement | acorn.Property)[]) {
+
+  for (const node of properties) {
+    console.log(node.type)
   }
 
 }
@@ -219,20 +268,10 @@ function conditional_expr(
   Transformer.replace({ start: consequent_start, end: consequent_start + 1 }, ',')
 
   callback(node.consequent);
-  // if (is_factory(node.consequent)) {
-  //   // Transformer.insert(h_node.consequent.start, '(h) =>')
-  //   transform_factory(node.consequent);
-  // }
-
 
   Transformer.replace({ start: alternate_start, end: alternate_start + 1 }, ',')
 
   callback(node.alternate);
-
-  // if (is_factory(node.alternate)) {
-  //   // Transformer.insert(h_node.alternate.start, '(h) =>')
-  //   transform_factory(node.alternate);
-  // }
 
   Transformer.insert(node.end, ')')
 }

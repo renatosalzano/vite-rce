@@ -50,8 +50,10 @@ const Partial = (props: { list: Array<number> }) => {
 
 export const Component = ({ title = 'hello rce' }) => {
 
-  let show = $state(false)
-  let array = $state([1, 2, 3])
+  // let show = $state(false)
+  let array = $state([1, 2])
+
+  let { show, toggle } = $hook()
 
   let obj = $state({
     nested: {
@@ -72,10 +74,10 @@ export const Component = ({ title = 'hello rce' }) => {
     console.log(array)
   }
 
-  function toggle() {
-    show = !show;
-    console.log('show', show)
-  }
+  // function toggle() {
+  //   show = !show;
+  //   console.log('show', show)
+  // }
 
 
 
@@ -85,36 +87,42 @@ export const Component = ({ title = 'hello rce' }) => {
     <my-component>
       <h2>my component</h2>
 
-      <div class={show ? 'show' : 'hidden'}>
+      <div {...props} class={show ? 'show' : (array.length > 0 ? "greater than 0" : "is 0")}>
         <button onclick={toggle}>toggle</button>
-        <button onclick={show ? add : minus}>{show ? 'add' : 'minus'}</button>
+        <button onclick={add}>add</button>
+        <button onclick={minus}>min</button>
+        {/* <button onclick={show ? add : minus}>{show ? 'add' : 'minus'}</button>
 
-        <button onclick={show ? add : null}>{show ? 'add' : 'nothing'} {show && 'add something'}</button>
+        <button onclick={show ? add : null}>{show ? 'add' : 'nothing'} {show && 'add something'}</button> */}
       </div>
+
+      <div>
+        <strong>counter is {array.length}</strong>
+      </div>
+
+      {array.length > 3 && <div>random</div>}
 
       {/* {show
         ? <div>{array.length > 0 ? "full" : "empty"}</div>
         : "hidden"
       } */}
 
-      {!show && (
-        <div>{array.length > 0 && (
-          <div>
-            nested
-            {array.length > 1 && (
-              <div>neested 1</div>
-            )}
-          </div>
-        )}</div>
-      )}
+      {/* {show && (
+        <div>
+          nested
+          {array.length > 1 && (
+            <div>neested 1</div>
+          )}
+        </div>
+      )} */}
 
-      {/* {array.map((i) => (
+      {array.map((i) => (
         <div>item - {i}
           {i == 2 && <div>condition by param</div>}
           {show ? <div>show</div> : 'hidden'}
         </div>
       ))
-      } */}
+      }
 
     </my-component>
   )

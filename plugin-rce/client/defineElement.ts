@@ -12,7 +12,7 @@ function defineElement(component: (props: any) => Config) {
     template: any,
   }>();
 
-  console.log('define', name)
+  // console.log('define', name)
 
   window.customElements.define(
     name,
@@ -22,7 +22,7 @@ function defineElement(component: (props: any) => Config) {
         super();
 
         const config = component({});
-        const template = config.init();
+        const template = config.init(this);
 
         // console.log(config)
 
@@ -39,7 +39,7 @@ function defineElement(component: (props: any) => Config) {
 
         const { template } = instances.get(this);
 
-        template.mount(this)
+        template.render()
 
         // template.append(this);
         // template.append(this);

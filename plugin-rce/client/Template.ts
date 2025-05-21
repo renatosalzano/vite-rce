@@ -1,394 +1,327 @@
 import { HYDRATE } from "../constant";
-import { Config, Reactive } from "./create";
+import { Config } from "./create";
 
 // #region Template
+
+type AnyNode = Element | Element[] | string | boolean;
+
 class Template {
 
   $: Config;
-  current: Conditional;
-  tree: any;
+  root: HTMLElement;
 
-  constructor($: Config) {
+  vdom = []
+  dom = []
+  last_element = null
+
+  mounted = false
+
+  constructor($: Config, root: HTMLElement) {
+
+    $.render = this.render;
     this.$ = $;
-    this.tree = this.$[HYDRATE](this.object);
-    console.log(this.tree)
-    // this.analyze(tree);
-  }
+    this.root = root;
 
+
+    // console.log(this.root)
+  }
 
 
   object = (tag: string, props: any, ...children: any) => {
-
-    return new ObjectElement(tag, props, children)
+    return new Element(tag, props, children)
   }
 
-  mount = (root: HTMLElement) => {
+  render = () => {
 
-    for (let child of this.tree.children) {
+    this.vdom = this.$[HYDRATE](this.object);
 
-      child = create_element(child);
-      root.append(child);
-    }
-  }
+    for (
+      let i = 0;
+      i < this.vdom.length;
+      i++
+    ) {
 
-
-
-
-
-  // create = (tag: string, props: any, ...children: any) => {
-  //   // console.log(tag, props, children)
-  //   if (tag == this.root.localName) {
-
-  //     this.append(this.root, children);
-  //     return;
-  //   }
-
-  //   const element = document.createElement(tag);
-
-  //   if (props) {
-  //     for (const key in props) {
-
-  //       let value = props[key];
-
-  //       if (value instanceof Mutation) {
-  //         // value.set_target(el)
-
-  //         value.set_target('attr', element, key);
-
-  //         value = value.value
-  //       }
-
-
-  //       // console.log(key, value)
-
-  //       if (key.startsWith('on')) {
-  //         element[key] = value
-  //       } else {
-  //         element.setAttribute(key, value)
-  //       }
-  //     }
-  //   }
-
-
-  //   this.append(element, children);
-
-  //   return element;
-  // }
-
-  // append(element: HTMLElement, children: any[]) {
-
-  //   console.log(element, children)
-
-  //   let index = 0;
-  //   for (const child of children) {
-
-  //     if (child instanceof Conditional) {
-  //       child.set_target('node', element, index);
-
-  //     } else {
-  //       element.append(child);
-  //     }
-
-  //     ++index;
-  //   }
-
-  // }
-
-
-}
-
-type MutationSetTarget = (type: string, t: HTMLElement, index: string | number) => void
-
-class Mutation {
-  value: any;
-  set_target: MutationSetTarget = () => { };
-
-  constructor(value: any, set_target?: MutationSetTarget) {
-    this.value = value;
-    if (set_target) this.set_target = set_target;
-
-  }
-}
-
-// #region Conditional
-
-class Conditional {
-
-  exec_condition: () => boolean;
-  condition: boolean;
-  slot: Comment;
-  current: any;
-  target: Comment | HTMLElement;
-
-  index: number | string;
-
-  type: 'node' | 'attr' | 'event';
-
-  node = {
-    if: null,
-    else: null
-  }
-
-  deps: Reactive[];
-  unregister: Function[] = [];
-
-  constructor(condition: () => boolean, _if: any, _else = null, deps: Reactive[]) {
-
-    this.exec_condition = condition;
-    this.deps = deps;
-
-    this.condition = condition();
-
-    this.slot = new Comment('$')
-
-    this.node.if = _if;
-    this.node.else = _else;
-
-    // console.log(this.node)
-
-  }
-
-
-  mount = () => {
-
-    for (const dep of this.deps) {
-      this.unregister.push(dep.register(this.update));
-    }
-
-    switch (this.type) {
-
-      case "node": {
-
-        this.target = this.condition
-          ? create_element(this.node.if)
-          : create_element(this.node.else)
-
-        return this.target;
+      let element = this.vdom[i];
+      if (this.mounted) {
+        // update
+        this.dom[i] = this.update(this.dom[i], element, this.root, i)
+      } else {
+        // create
+        this.dom[i] = this.create(element);
+        this.append(this.root, this.dom[i])
       }
-      case "attr":
-      case "event": {
-        return this.condition
-          ? this.node.if
-          : this.node.else
+
+    }
+
+    this.mounted = true;
+    // console.log(this.vdom, this.dom)
+  }
+
+
+  create = (item: AnyNode) => {
+
+    switch (item.constructor) {
+      case Element: {
+        const { tag, props, events, children } = item as Element
+
+        const element = document.createElement(tag)
+
+        for (const key in props) {
+          element.setAttribute(key, props[key])
+        }
+
+        for (const key in events) {
+          element[key] = events[key]
+        }
+
+        for (const child of children) {
+          this.append(element, this.create(child))
+        }
+
+        return element
       }
+      case Number:
+      case String: {
+        return item;
+      }
+      case Array: {
+        return (item as any).map(e => this.create(e))
+      }
+      default:
+        return null
     }
 
 
   }
 
-  unmount = () => {
+  update = (prev: HTMLElement | ChildNode | HTMLElement[] | boolean, curr: any, parent: HTMLElement, index: number) => {
 
-    for (const unregister of this.unregister) {
-      unregister()
-    }
+    switch (curr.constructor) {
+      case Element: {
 
-  }
+        if (prev == null) {
+          const res = this.create(curr)
+          this.append_at(parent, res, index)
 
-  update = () => {
-    const condition = this.exec_condition();
+          return res
+        }
 
-    console.log('update')
-    if (this.condition != condition) {
+        if (is_text_node(prev)) {
+          console.log('replace this', prev, curr)
+          prev.replaceWith(this.create(curr));
+          return prev
+        }
 
-    }
+        if (is_html(prev)) {
 
-  }
+          const { props, events, children } = curr;
 
-  set_type = (type: Conditional['type']) => {
+          for (const attr of prev.attributes) {
+            if (attr.name in props) {
+              prev.setAttribute(attr.name, props[attr.name])
+            } else {
+              prev.removeAttribute(attr.name)
+            }
+          }
 
-    this.type = type;
+          for (const key in events) {
 
-    if (type == 'node' && this.node.else == null) {
-      this.node.else = this.slot
-    }
+            prev[key] = typeof events[key] == 'function'
+              ? events[key]
+              : null
 
-  }
+          }
 
+          const max = Math.max(prev.childNodes.length - 1, children.length)
 
-}
+          for (let i = 0; i < max; i++) {
 
-class List {
+            const prev_node = prev.childNodes[i] || null
 
-  result: Function;
-  slot: Comment;
-  node_list: any[] = [];
+            this.update(prev_node, children[i], prev, i)
+          }
 
-  target: Comment | HTMLElement;
-  child_index = 0;
+        }
 
-  constructor(result: Function, deps: Reactive[]) {
-    this.result = result;
-    this.slot = new Comment('$')
+        return prev;
+      }
+      case Array: {
 
-    this.node_list = this.result();
+        let index_offset = 0;
 
-    if (this.node_list.length == 0) {
-      this.node_list[0] = this.slot;
-    }
+        if (is_node(prev[0])) {
 
-  }
-
-  create = () => {
-    return new Mutation(this.node_list)
-  }
-
-  update = () => {
-    const node_list = this.result();
-
-    const max_index = Math.max(node_list.length, this.node_list.length);
-    let last_element: HTMLElement | Comment = this.node_list[0];
-
-    for (let index = 0; index < max_index; index++) {
-
-      const element = node_list[index];
-
-      if (index < node_list.length) {
-
-        if (this.node_list[index]) {
-
-          const dom_element = this.node_list[index];
-
-          if (!dom_element.isEqualNode(element)) {
-            // replace item
-            dom_element.replaceWith(element);
-            this.node_list[index] = element;
-
-            last_element = element;
-          } else {
-            // keep item
-            last_element = dom_element;
+          for (const child of parent.childNodes) {
+            if (child.isSameNode(prev[0])) {
+              break
+            }
+            index_offset++
           }
 
         } else {
-          // add item
-          this.node_list[index] = element;
-          last_element.after(element);
-          last_element = element;
+          index_offset = parent.childNodes.length
         }
 
-      } else {
-        // remove item
+        // console.log('index_offset', index_offset)
 
-        if (this.node_list.length == 1) {
-          this.node_list[0].replaceWith(this.slot);
-          this.node_list[0] = this.slot;
-        } else {
-          this.node_list[index].remove();
-          this.node_list.splice(index, 1);
+        const dom_list = prev as Array<HTMLElement>;
+
+        const max = Math.max(curr.length, dom_list.length);
+
+        for (let i = 0; i < max; i++) {
+
+          if (i < curr.length) {
+            prev[i] = this.update(prev[i] || null, curr[i], parent, index_offset + i);
+          } else {
+            prev[i].remove()
+            dom_list.splice(i, 1)
+          }
         }
 
+        return prev
       }
-    } // end for
+      case Number:
+      case String: {
 
-    //
+        if (is_html(prev)) {
+          console.log('replace text node')
+          prev.replaceWith(new Text(curr));
+          break
+        }
+
+        if (is_text_node(prev)) {
+
+          if (prev.nodeValue != curr) {
+            console.log('update text node', curr)
+            prev.nodeValue = curr;
+          }
+
+        } else {
+          this.append_at(parent, curr, index)
+        }
+
+        break
+      }
+      case Boolean: {
+
+        if (is_node(prev)) {
+          prev.remove()
+          return null
+        }
+      }
+    }
+
+
+
   }
 
-  mutation = (target: HTMLElement) => {
-    target.append(...this.node_list);
+
+  update_element = (prev: any, curr: HTMLElement, parent: HTMLElement) => {
+
+  }
+
+
+  update_list = (prev: any, curr: any) => {
+
+
+
+  }
+
+
+
+  append(element: any, node: any) {
+
+    if (node == null) return;
+
+    if (Array.isArray(node)) {
+      for (const n of node) {
+        element.append(n)
+      }
+    } else {
+      element.append(node)
+    }
+
+  }
+
+
+  append_at = (element: HTMLElement, children: HTMLElement | string, index: number) => {
+
+    if (element.childNodes.length > 0) {
+      let prev_element: HTMLElement;
+
+      while (index > 0) {
+        const item = element.childNodes[index - 1]
+
+        if (is_node(item)) {
+          prev_element = item
+          break
+        }
+
+        index--
+      }
+
+      prev_element.after(children)
+
+    } else {
+      element.append(children)
+    }
   }
 
 }
+
 
 // #region ObjectElement
 
-class ObjectElement {
+class Element {
 
-  tag: string;
-  props: any;
+  tag: string
+  props: any = {}
+  events: any = {}
   children: any[]
 
-  constructor(tag: string, props: any, children: any[]) {
+  constructor(tag: string, props: any = {}, children: any[]) {
 
     this.tag = tag;
-    this.props = props;
     this.children = children;
 
-    for (const key in (props ?? {})) {
-
-      const value = props[key];
-
-      if (value instanceof Conditional) {
-
-        if (key.startsWith('on')) {
-          value.type = 'event';
-          console.log('EVENT', value)
-        } else {
-          value.type = 'attr';
-        }
-        // directives.push(value)
+    for (const key in props) {
+      if (key.startsWith('on')) {
+        this.events[key] = props[key]
+      } else {
+        this.props[key] = props[key]
       }
     }
 
-    for (const child of children) {
-
-      if (child instanceof Conditional) {
-        child.set_type('node')
-
-        // directives.push(child)
-      }
-
-      if (child instanceof List) {
-        // directives.push(child)
-      }
-
-    }
   }
 }
 
-function create_element(init: any, index = 0) {
+function is_array(value: any): value is Array<unknown> {
+  return Array.isArray(value)
+}
 
-  switch (init.constructor) {
+function is_object(value: any): value is Object {
+  return value instanceof Object
+}
 
-    case Comment:
-      return init;
-
-    case String:
-      return new Text(init);
-
-    case ObjectElement: {
-
-      const { tag, props, children } = init;
-
-      const element = document.createElement(tag);
-
-      for (const key in (props ?? {})) {
-
-        let value = props[key];
-
-        if (value instanceof Conditional) {
-          value = value.mount()
-        }
-
-        if (key.startsWith('on')) {
-          element[key] = value;
-        } else {
-          element.setAttribute(key, value);
-        }
-
-      }
-
-      let child_index = 0;
-      for (let child of children) {
-        child = create_element(child, child_index);
-        element.append(child);
-
-        ++child_index;
-      }
-
-      return element;
-    }
-    case Conditional: {
-      return init.mount();
-    }
-    case List: {
-
-    }
+function is_html(value: any): value is HTMLElement {
+  if (is_object(value) && value?.nodeType == 1) {
+    return value;
   }
+}
 
+function is_text_node(value: any): value is Text {
+  if (is_object(value) && value?.nodeType == 3) {
+    return value;
+  }
+}
+
+
+function is_node(value: any): value is HTMLElement {
+  if (is_object(value) && "nodeType" in value) {
+    return value;
+  }
 }
 
 export {
-  Template,
-  Conditional,
-  List
+  Template
 }

@@ -1,9 +1,7 @@
 const CONFIG_ID = '$';
 const HOOK_START = '$';
 const STATE = `${HOOK_START}state`;
-const TEMPLATE_CONDITIONAL_EXPRESSION = `${CONFIG_ID}.ce`
 const GET_VALUE = 'v';
-const CREATE_REACTIVE_VALUE = 'r';
 const HYDRATE = 'h';
 const CONDITIONAL = 'i';
 const LIST = 'f'
@@ -16,6 +14,4 @@ export {
   STATE,
   GET_VALUE,
   HYDRATE,
-  TEMPLATE_CONDITIONAL_EXPRESSION,
-  CREATE_REACTIVE_VALUE
 }

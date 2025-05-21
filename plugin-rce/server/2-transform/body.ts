@@ -2,19 +2,20 @@ import { acorn, type ReactiveNode, return_keys, walk } from "../ast";
 import { CONFIG_ID, HOOK_START, STATE } from "../../constant";
 import Transformer from "../Transformer";
 
-function transform_body($node: ReactiveNode) {
+function transform_body($node: ReactiveNode, transform_hook = false) {
 
   function parse_state_keys(node: acorn.AnyNode) {
 
-    const keys = return_keys(node);
+    walk(node, {
+      Identifier(id) {
 
-    keys.forEach(key => {
-      if (key == CONFIG_ID) {
-        throw '$ is reserved keyword';
+        if (id.name == CONFIG_ID) {
+          throw '$ is reserved keyword';
+        }
+
+        $node.state.add(id.name)
+
       }
-
-      $node.state.add(key)
-
     })
   }
 
@@ -40,7 +41,7 @@ function transform_body($node: ReactiveNode) {
 
     if (node.body.type == 'BlockStatement') {
 
-      Transformer.insert(node.body.start + 1, `\nlet [${getter_keys}] = $.get(${keys});\n`);
+      Transformer.insert(node.body.start + 1, `\nlet [${getter_keys}] = $([${keys}]);\n`);
       Transformer.insert(node.body.end - 1, `\n$.set([${keys}], [${getter_keys}]);\n`);
     }
 

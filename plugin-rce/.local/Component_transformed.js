@@ -3,7 +3,7 @@ import { $state, defineElement } from "@rce";
 const $hook = ($) =>()=> {
   let show = $.state(false);
   function toggle() {
-let [_show] = $.get(show);
+let [_show] = $([show]);
 
     _show = !_show;
   
@@ -27,47 +27,32 @@ const Partial = (props) => {
 };
 export const Component = ({ title = "hello rce" }) => {
  const $ = create({ title });
-  let show = $.state(false);
-  let array = $.state([1, 2, 3]);
+  let array = $.state([1, 2]);
+  let { show, toggle } = $hook($)();
   let obj = $.state({
     nested: {
       list: [1, 2, 3]
     }
   });
   function add() {
-let [_array] = $.get(array);
+let [_array] = $([array]);
 
     _array.push(_array.length + 1);
   
 $.set([array], [_array]);
 }
   const minus = () => {
-let [_array] = $.get(array);
+let [_array] = $([array]);
 
     _array.pop();
     console.log(_array);
   
 $.set([array], [_array]);
 };
-  function toggle() {
-let [_show] = $.get(show);
-
-    _show = !_show;
-    console.log("show", _show);
-  
-$.set([show], [_show]);
-}
   const props = {};
-  return /* @__PURE__ */ $.h = (h) =>h("my-component", null, /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class:
-$.i(()=> $(show),[show] , "show" , "hidden") }, /* @__PURE__ */ h("button", { onclick: toggle }, "toggle"), /* @__PURE__ */ h("button", { onclick:
-$.i(()=> $(show),[show] , add , minus) },
-$.i(()=> $(show),[show] , "add" , "minus")), /* @__PURE__ */ h("button", { onclick:
-$.i(()=> $(show),[show] , add , null) },
-$.i(()=> $(show),[show] , "add" , "nothing"), " ", 
-$.i(()=>$(show),[show] , "add something"))), 
-$.i(()=>!$(show),[show] , /* @__PURE__ */ h("div", null, 
-$.i(()=>$(array).length > 0,[array] , /* @__PURE__ */ h("div", null, "nested", 
-$.i(()=>$(array).length > 1,[array] , /* @__PURE__ */ h("div", null, "neested 1"))))))), $;
+  return /* @__PURE__ */ $.h = (h) => {
+const [_array,_show,_toggle,_obj] = $([array,show,toggle,obj]);
+return [ /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { ...props, class: _show ? "show" : _array.length > 0 ? "greater than 0" : "is 0" }, /* @__PURE__ */ h("button", { onclick: _toggle }, "toggle"), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "min")), /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("strong", null, "counter is ", _array.length)), _array.length > 3 && /* @__PURE__ */ h("div", null, "random"), _array.map((i) => /* @__PURE__ */ h("div", null, "item - ", i, i == 2 && /* @__PURE__ */ h("div", null, "condition by param"), _show ? /* @__PURE__ */ h("div", null, "show") : "hidden"))]}, $;
 }
 register(Component, 'my-component');
 ;
