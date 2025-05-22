@@ -1,5 +1,6 @@
 div {
   display: block;
+  padding-left: 8px;
 }
 
 .flex {

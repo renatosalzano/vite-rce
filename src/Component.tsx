@@ -52,6 +52,7 @@ export const Component = ({ title = 'hello rce' }) => {
 
   // let show = $state(false)
   let array = $state([1, 2])
+  let nested = $state([])
 
   let { show, toggle } = $hook()
 
@@ -70,6 +71,11 @@ export const Component = ({ title = 'hello rce' }) => {
   }
 
   const minus = () => {
+    array.pop();
+    console.log(array)
+  }
+
+  const test = () => {
     array.pop();
     console.log(array)
   }
@@ -117,9 +123,17 @@ export const Component = ({ title = 'hello rce' }) => {
       )} */}
 
       {array.map((i) => (
-        <div>item - {i}
-          {i == 2 && <div>condition by param</div>}
-          {show ? <div>show</div> : 'hidden'}
+        <div>level 0 - {i}
+          {/* {i == 2 && <div>condition by param</div>}
+          {i == 3 && array.map((i) => (
+            <div>
+              level 1 - {i}
+              {array.map((i) => (
+                <div>level 2 - {i}</div>
+              ))}
+            </div>
+          ))} */}
+          {show ? <div>show</div> : null}
         </div>
       ))
       }

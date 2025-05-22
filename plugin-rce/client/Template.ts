@@ -10,7 +10,10 @@ class Template {
   $: Config;
   root: HTMLElement;
 
-  vdom = []
+  vdom = {
+    prev: [],
+    curr: []
+  }
   dom = []
   last_element = null
 
@@ -21,9 +24,6 @@ class Template {
     $.render = this.render;
     this.$ = $;
     this.root = root;
-
-
-    // console.log(this.root)
   }
 
 
@@ -33,32 +33,73 @@ class Template {
 
   render = () => {
 
-    this.vdom = this.$[HYDRATE](this.object);
+    this.vdom.curr = this.$[HYDRATE](this.object);
+
+    let offset = 0
 
     for (
       let i = 0;
-      i < this.vdom.length;
+      i < this.vdom.curr.length;
       i++
     ) {
 
-      let element = this.vdom[i];
-      if (this.mounted) {
-        // update
-        this.dom[i] = this.update(this.dom[i], element, this.root, i)
-      } else {
-        // create
-        this.dom[i] = this.create(element);
-        this.append(this.root, this.dom[i])
+      const curr = this.vdom.curr[i]
+
+      try {
+
+        if (this.mounted) {
+          // update
+          const prev = this.vdom.prev[i];
+
+          if (is_empty(prev) && is_empty(curr)) {
+            offset--
+          } else {
+
+            log(this.dom[i])
+
+            this.dom[i] = this.update(
+              this.dom[i],
+              prev,
+              curr,
+              this.root,
+              i + offset
+            )
+
+            if (is_array(curr)) {
+              offset += Math.min(0, curr.length - 1)
+            }
+
+            if (!is_empty(prev) && is_empty(curr)) {
+              offset--
+            }
+
+          }
+
+        } else {
+          // create
+          this.dom[i] = this.create(curr)
+          this.append(this.root, this.dom[i])
+
+          if (is_array(curr)) {
+            this.dom[i] = this.root.childNodes
+          }
+        }
+
+      } catch (err) {
+        console.error(err)
       }
 
     }
 
-    this.mounted = true;
-    // console.log(this.vdom, this.dom)
+    // console.log(this.vdom.prev, this.vdom.curr, this.dom)
+    this.mounted = true
+    this.vdom.prev = this.vdom.curr
   }
 
 
   create = (item: AnyNode) => {
+
+    if (item == null) return null
 
     switch (item.constructor) {
       case Element: {
@@ -94,106 +135,160 @@ class Template {
 
   }
 
-  update = (prev: HTMLElement | ChildNode | HTMLElement[] | boolean, curr: any, parent: HTMLElement, index: number) => {
+  update = (
+    node: HTMLElement | ChildNode | HTMLElement[] | NodeListOf<ChildNode>,
+    prev: any,
+    curr: any,
+    parent: HTMLElement,
+    index: number
+  ) => {
 
+    if (is_empty(curr)) {
+
+      if (is_node(node)) {
+        node.remove()
+      }
+
+      if (is_node_list(node)) {
+        node[index].remove()
+        return node
+      }
+
+      return null
+    }
+
+    // console.log('update', node, curr)
     switch (curr.constructor) {
       case Element: {
 
-        if (prev == null) {
+        if (node == null) {
           const res = this.create(curr)
           this.append_at(parent, res, index)
 
           return res
         }
 
-        if (is_text_node(prev)) {
-          console.log('replace this', prev, curr)
-          prev.replaceWith(this.create(curr));
-          return prev
+        if (is_text_node(node)) {
+          node.replaceWith(this.create(curr));
+          return node
         }
 
-        if (is_html(prev)) {
+        if (is_html(node)) {
 
           const { props, events, children } = curr;
 
-          for (const attr of prev.attributes) {
+          for (const attr of node.attributes) {
+
             if (attr.name in props) {
-              prev.setAttribute(attr.name, props[attr.name])
+
+              if (attr.value != props[attr.name]) {
+                node.setAttribute(attr.name, props[attr.name])
+              }
+
             } else {
-              prev.removeAttribute(attr.name)
+              node.removeAttribute(attr.name)
             }
           }
 
           for (const key in events) {
 
-            prev[key] = typeof events[key] == 'function'
+            node[key] = typeof events[key] == 'function'
               ? events[key]
               : null
 
           }
 
-          const max = Math.max(prev.childNodes.length - 1, children.length)
+          // const max = Math.max(prev.childNodes.length, children.length)
+          const prev_children = prev.children;
+          let offset = 0
 
-          for (let i = 0; i < max; i++) {
+          for (let i = 0; i < children.length; i++) {
 
-            const prev_node = prev.childNodes[i] || null
+            // if (prev_children == undefined || children == undefined) {
+            //   log('-- ERROR --')
+            //   log('index', i)
+            //   log(prev)
+            //   log(curr)
+            //   log(this.vdom.prev)
+            //   log('-- ERROR END --')
+            //   continue
+            // }
 
-            this.update(prev_node, children[i], prev, i)
+            if (is_empty(prev_children[i]) && is_empty(children[i])) {
+              offset--
+            } else {
+
+              const node_index = i + offset
+
+              this.update(
+                is_array(children[i])
+                  ? node.childNodes
+                  : node.childNodes[node_index] ?? null,
+                prev_children[i] || false,
+                children[i],
+                node,
+                node_index
+              )
+
+              if (is_array(children[i])) {
+                offset += children[i].length - 1
+              }
+
+              if (!is_empty(prev_children[i]) && is_empty(children[i])) {
+                offset -= 1
+              }
+
+            }
+
           }
 
         }
 
-        return prev;
+        return node;
       }
+      // #region List
       case Array: {
 
-        let index_offset = 0;
+        // log('-- LIST --')
 
-        if (is_node(prev[0])) {
+        // log(prev)
+        // log(curr)
 
-          for (const child of parent.childNodes) {
-            if (child.isSameNode(prev[0])) {
-              break
-            }
-            index_offset++
-          }
+        // log('-- LIST END --')
 
-        } else {
-          index_offset = parent.childNodes.length
-        }
-
-        // console.log('index_offset', index_offset)
-
-        const dom_list = prev as Array<HTMLElement>;
-
-        const max = Math.max(curr.length, dom_list.length);
+        const max = Math.max(prev.length, curr.length)
 
         for (let i = 0; i < max; i++) {
 
           if (i < curr.length) {
-            prev[i] = this.update(prev[i] || null, curr[i], parent, index_offset + i);
+
+            this.update(
+              node[i + index] || null,
+              prev[i] || false,
+              curr[i],
+              parent,
+              i + index
+            )
+
           } else {
-            prev[i].remove()
-            dom_list.splice(i, 1)
+            node[i + index].remove()
           }
         }
 
-        return prev
+        return node
       }
       case Number:
       case String: {
 
-        if (is_html(prev)) {
-          console.log('replace text node')
-          prev.replaceWith(new Text(curr));
+        if (is_html(node)) {
+          node.replaceWith(new Text(curr));
           break
         }
 
-        if (is_text_node(prev)) {
+        if (is_text_node(node)) {
 
-          if (prev.nodeValue != curr) {
-            console.log('update text node', curr)
-            prev.nodeValue = curr;
+          if (node.nodeValue != curr) {
+            node.nodeValue = curr;
           }
 
         } else {
@@ -204,30 +299,13 @@ class Template {
       }
       case Boolean: {
 
-        if (is_node(prev)) {
-          prev.remove()
+        if (is_node(node)) {
+          node.remove()
           return null
         }
       }
     }
-
-
-
   }
-
-
-  update_element = (prev: any, curr: HTMLElement, parent: HTMLElement) => {
-
-  }
-
-
-  update_list = (prev: any, curr: any) => {
-
-
-
-  }
-
-
 
   append(element: any, node: any) {
 
@@ -320,6 +398,28 @@ function is_node(value: any): value is HTMLElement {
   if (is_object(value) && "nodeType" in value) {
     return value;
   }
+}
+
+function is_node_list(value: any): value is NodeList {
+  if (value instanceof NodeList) {
+    return true;
+  }
+}
+
+function is_empty(value: any) {
+
+  if (typeof value == 'number') {
+    return false
+  }
+
+  if (is_array(value)) {
+    return value.length == 0
+  }
+  return value == false || value == null
+}
+
+function log(...m: any) {
+  console.log(...m)
 }
 
 export {

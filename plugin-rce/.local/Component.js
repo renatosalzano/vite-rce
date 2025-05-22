@@ -24,6 +24,7 @@ const Partial = (props) => {
 export const Component = ({ title = "hello rce" }) => {
   const $ = create({ title });
   let array = $.state([1, 2]);
+  let nested = $.state([]);
   let { show, toggle } = $hook($)();
   let obj = $.state({
     nested: {
@@ -41,10 +42,16 @@ export const Component = ({ title = "hello rce" }) => {
     console.log(_array);
     $.set([array], [_array]);
   };
+  const test = () => {
+    let [_array] = $([array]);
+    _array.pop();
+    console.log(_array);
+    $.set([array], [_array]);
+  };
   const props = {};
   return $.h = (h2) => {
-    const [_array, _show, _toggle, _obj] = $([array, show, toggle, obj]);
-    return [/* @__PURE__ */ h2("h2", null, "my component"), /* @__PURE__ */ h2("div", { ...props, class: _show ? "show" : _array.length > 0 ? "greater than 0" : "is 0" }, /* @__PURE__ */ h2("button", { onclick: _toggle }, "toggle"), /* @__PURE__ */ h2("button", { onclick: add }, "add"), /* @__PURE__ */ h2("button", { onclick: minus }, "min")), /* @__PURE__ */ h2("div", null, /* @__PURE__ */ h2("strong", null, "counter is ", _array.length)), _array.length > 3 && /* @__PURE__ */ h2("div", null, "random"), _array.map((i) => /* @__PURE__ */ h2("div", null, "item - ", i, i == 2 && /* @__PURE__ */ h2("div", null, "condition by param"), _show ? /* @__PURE__ */ h2("div", null, "show") : "hidden"))];
+    const [_array, _nested, _show, _toggle, _obj] = $([array, nested, show, toggle, obj]);
+    return [/* @__PURE__ */ h2("h2", null, "my component"), /* @__PURE__ */ h2("div", { ...props, class: _show ? "show" : _array.length > 0 ? "greater than 0" : "is 0" }, /* @__PURE__ */ h2("button", { onclick: _toggle }, "toggle"), /* @__PURE__ */ h2("button", { onclick: add }, "add"), /* @__PURE__ */ h2("button", { onclick: minus }, "min")), /* @__PURE__ */ h2("div", null, /* @__PURE__ */ h2("strong", null, "counter is ", _array.length)), _array.length > 3 && /* @__PURE__ */ h2("div", null, "random"), _array.map((i) => /* @__PURE__ */ h2("div", null, "level 0 - ", i, _show ? /* @__PURE__ */ h2("div", null, "show") : null))];
   }, $;
 };
 register(Component, "my-component");

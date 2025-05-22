@@ -17,7 +17,10 @@ var HYDRATE = "h";
 var Template = class {
   $;
   root;
-  vdom = [];
+  vdom = {
+    prev: [],
+    curr: []
+  };
   dom = [];
   last_element = null;
   mounted = false;
@@ -30,19 +33,47 @@ var Template = class {
     return new Element(tag, props, children);
   };
   render = () => {
-    this.vdom = this.$[HYDRATE](this.object);
-    for (let i = 0; i < this.vdom.length; i++) {
-      let element = this.vdom[i];
-      if (this.mounted) {
-        this.dom[i] = this.update(this.dom[i], element, this.root, i);
-      } else {
-        this.dom[i] = this.create(element);
-        this.append(this.root, this.dom[i]);
+    this.vdom.curr = this.$[HYDRATE](this.object);
+    let offset = 0;
+    for (let i = 0; i < this.vdom.curr.length; i++) {
+      const curr = this.vdom.curr[i];
+      try {
+        if (this.mounted) {
+          const prev = this.vdom.prev[i];
+          if (is_empty(prev) && is_empty(curr)) {
+            offset--;
+          } else {
+            log(this.dom[i]);
+            this.dom[i] = this.update(
+              this.dom[i],
+              prev,
+              curr,
+              this.root,
+              i + offset
+            );
+            if (is_array(curr)) {
+              offset += Math.min(0, curr.length - 1);
+            }
+            if (!is_empty(prev) && is_empty(curr)) {
+              offset--;
+            }
+          }
+        } else {
+          this.dom[i] = this.create(curr);
+          this.append(this.root, this.dom[i]);
+          if (is_array(curr)) {
+            this.dom[i] = this.root.childNodes;
+          }
+        }
+      } catch (err) {
+        console.error(err);
       }
     }
     this.mounted = true;
+    this.vdom.prev = this.vdom.curr;
   };
   create = (item) => {
+    if (item == null) return null;
     switch (item.constructor) {
       case Element: {
         const { tag, props, events, children } = item;
@@ -69,74 +100,94 @@ var Template = class {
         return null;
     }
   };
-  update = (prev, curr, parent, index) => {
+  update = (node, prev, curr, parent, index) => {
+    if (is_empty(curr)) {
+      if (is_node(node)) {
+        node.remove();
+      }
+      if (is_node_list(node)) {
+        node[index].remove();
+        return node;
+      }
+      return null;
+    }
     switch (curr.constructor) {
       case Element: {
-        if (prev == null) {
+        if (node == null) {
           const res = this.create(curr);
           this.append_at(parent, res, index);
           return res;
         }
-        if (is_text_node(prev)) {
-          console.log("replace this", prev, curr);
-          prev.replaceWith(this.create(curr));
-          return prev;
+        if (is_text_node(node)) {
+          node.replaceWith(this.create(curr));
+          return node;
         }
-        if (is_html(prev)) {
+        if (is_html(node)) {
           const { props, events, children } = curr;
-          for (const attr of prev.attributes) {
+          for (const attr of node.attributes) {
             if (attr.name in props) {
-              prev.setAttribute(attr.name, props[attr.name]);
+              if (attr.value != props[attr.name]) {
+                node.setAttribute(attr.name, props[attr.name]);
+              }
             } else {
-              prev.removeAttribute(attr.name);
+              node.removeAttribute(attr.name);
             }
           }
           for (const key in events) {
-            prev[key] = typeof events[key] == "function" ? events[key] : null;
+            node[key] = typeof events[key] == "function" ? events[key] : null;
           }
-          const max = Math.max(prev.childNodes.length - 1, children.length);
-          for (let i = 0; i < max; i++) {
-            const prev_node = prev.childNodes[i] || null;
-            this.update(prev_node, children[i], prev, i);
-          }
-        }
-        return prev;
-      }
-      case Array: {
-        let index_offset = 0;
-        if (is_node(prev[0])) {
-          for (const child of parent.childNodes) {
-            if (child.isSameNode(prev[0])) {
-              break;
+          const prev_children = prev.children;
+          let offset = 0;
+          for (let i = 0; i < children.length; i++) {
+            if (is_empty(prev_children[i]) && is_empty(children[i])) {
+              offset--;
+            } else {
+              const node_index = i + offset;
+              this.update(
+                is_array(children[i]) ? node.childNodes : node.childNodes[node_index] ?? null,
+                prev_children[i] || false,
+                children[i],
+                node,
+                node_index
+              );
+              if (is_array(children[i])) {
+                offset += children[i].length - 1;
+              }
+              if (!is_empty(prev_children[i]) && is_empty(children[i])) {
+                offset -= 1;
+              }
             }
-            index_offset++;
           }
-        } else {
-          index_offset = parent.childNodes.length;
         }
-        const dom_list = prev;
-        const max = Math.max(curr.length, dom_list.length);
+        return node;
+      }
+      // #region List
+      case Array: {
+        const max = Math.max(prev.length, curr.length);
         for (let i = 0; i < max; i++) {
           if (i < curr.length) {
-            prev[i] = this.update(prev[i] || null, curr[i], parent, index_offset + i);
+            this.update(
+              node[i + index] || null,
+              prev[i] || false,
+              curr[i],
+              parent,
+              i + index
+            );
           } else {
-            prev[i].remove();
-            dom_list.splice(i, 1);
+            node[i + index].remove();
           }
         }
-        return prev;
+        return node;
       }
       case Number:
       case String: {
-        if (is_html(prev)) {
-          console.log("replace text node");
-          prev.replaceWith(new Text(curr));
+        if (is_html(node)) {
+          node.replaceWith(new Text(curr));
           break;
         }
-        if (is_text_node(prev)) {
-          if (prev.nodeValue != curr) {
-            console.log("update text node", curr);
-            prev.nodeValue = curr;
+        if (is_text_node(node)) {
+          if (node.nodeValue != curr) {
+            node.nodeValue = curr;
           }
         } else {
           this.append_at(parent, curr, index);
@@ -144,16 +195,12 @@ var Template = class {
         break;
       }
       case Boolean: {
-        if (is_node(prev)) {
-          prev.remove();
+        if (is_node(node)) {
+          node.remove();
           return null;
         }
       }
     }
-  };
-  update_element = (prev, curr, parent) => {
-  };
-  update_list = (prev, curr) => {
   };
   append(element, node) {
     if (node == null) return;
@@ -199,6 +246,9 @@ var Element = class {
     }
   }
 };
+function is_array(value) {
+  return Array.isArray(value);
+}
 function is_object(value) {
   return value instanceof Object;
 }
@@ -216,6 +266,23 @@ function is_node(value) {
   if (is_object(value) && "nodeType" in value) {
     return value;
   }
+}
+function is_node_list(value) {
+  if (value instanceof NodeList) {
+    return true;
+  }
+}
+function is_empty(value) {
+  if (typeof value == "number") {
+    return false;
+  }
+  if (is_array(value)) {
+    return value.length == 0;
+  }
+  return value == false || value == null;
+}
+function log(...m) {
+  console.log(...m);
 }
 
 // plugin-rce/client/create.ts
@@ -267,22 +334,12 @@ function create(props) {
     [HYDRATE](_) {
       return [];
     },
-    // [CONDITIONAL](condition: () => boolean, _if: any, _else?: any) {
-    //   return new Conditional(condition, _if, _else, deps);
-    // },
-    // [LIST](result: Function, deps: Reactive[]) {
-    //   return new List(result, deps);
-    // },
     init(root) {
       this.template = new Template(this, root);
       return this.template;
     },
     render() {
     }
-    // template: (() => {
-    //   $.template = new Template($);
-    //   return $.template;
-    // }) as any,
   };
   const ret = Object.assign((value) => {
     if (Array.isArray(value)) {

@@ -80,28 +80,12 @@ function create(props: { [key: string]: any }) {
 
     [HYDRATE](_: Function) { return [] },
 
-    // [CONDITIONAL](condition: () => boolean, _if: any, _else?: any) {
-
-    //   return new Conditional(condition, _if, _else, deps);
-    // },
-
-    // [LIST](result: Function, deps: Reactive[]) {
-
-    //   return new List(result, deps);
-
-    // },
-
     init(root: HTMLElement) {
       this.template = new Template(this, root);
       return this.template;
     },
 
     render() { }
-
-    // template: (() => {
-    //   $.template = new Template($);
-    //   return $.template;
-    // }) as any,
   }
 
   const ret = Object.assign((value: any) => {
