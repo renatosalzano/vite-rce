@@ -1,4 +1,4 @@
-import { $state, $for, defineElement } from '@rce';
+import { $state, $ref, defineElement } from '@rce';
 
 
 function $hook() {
@@ -48,6 +48,14 @@ const Partial = (props: { list: Array<number> }) => {
 }
 
 
+function Button({ onclick, children }: { onclick: Function, children?: any }) {
+
+  return (
+    <button onclick={onclick}>{children}</button>
+  )
+}
+
+
 export const Component = ({ title = 'hello rce' }) => {
 
   // let show = $state(false)
@@ -56,11 +64,8 @@ export const Component = ({ title = 'hello rce' }) => {
 
   let { show, toggle } = $hook()
 
-  let obj = $state({
-    nested: {
-      list: [1, 2, 3]
-    }
-  })
+  const ref = $ref(null)
+
 
   // let $ = $state(true);
 
@@ -85,18 +90,29 @@ export const Component = ({ title = 'hello rce' }) => {
   //   console.log('show', show)
   // }
 
+  const obj = {
+    show
+  }
 
-
-  const props = {}
+  const props = {
+    obj,
+    onclick: add,
+    test: {
+      nested: {
+        key: array.lenght
+      }
+    }
+  }
 
   return (
     <my-component>
       <h2>my component</h2>
 
-      <div {...props} class={show ? 'show' : (array.length > 0 ? "greater than 0" : "is 0")}>
-        <button onclick={toggle}>toggle</button>
-        <button onclick={add}>add</button>
-        <button onclick={minus}>min</button>
+      <div class={show ? 'show' : (array.length > 0 ? "greater than 0" : "is 0")}>
+        <button ref={ref} onclick={toggle}>toggle</button>
+        <button {...props}>add</button>
+        {/* <button onclick={minus}>min</button> */}
+        <Button onclick={minus}><strong>minus</strong> {array.length}</Button>
         {/* <button onclick={show ? add : minus}>{show ? 'add' : 'minus'}</button>
 
         <button onclick={show ? add : null}>{show ? 'add' : 'nothing'} {show && 'add something'}</button> */}
@@ -121,6 +137,8 @@ export const Component = ({ title = 'hello rce' }) => {
           )}
         </div>
       )} */}
+
+      {/* <Partial list={array} /> */}
 
       {array.map((i) => (
         <div>level 0 - {i}

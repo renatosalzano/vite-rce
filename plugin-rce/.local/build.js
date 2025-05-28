@@ -12,6 +12,7 @@ var register_default = register;
 var HOOK_START = "$";
 var STATE = `${HOOK_START}state`;
 var HYDRATE = "h";
+var HOOK_REF = `${HOOK_START}ref`;
 
 // plugin-rce/client/Template.ts
 var Template = class {
@@ -22,7 +23,7 @@ var Template = class {
     curr: []
   };
   dom = [];
-  last_element = null;
+  partials = /* @__PURE__ */ new Map();
   mounted = false;
   constructor($, root) {
     $.render = this.render;
@@ -30,7 +31,18 @@ var Template = class {
     this.root = root;
   }
   object = (tag, props, ...children) => {
-    return new Element(tag, props, children);
+    if (typeof tag == "function") {
+      if (!this.partials.has(tag.name)) {
+        this.partials.set(tag.name, tag(this.$));
+      }
+      const h = this.partials.get(tag.name);
+      if (children.length > 0) {
+        props.children = children;
+      }
+      return h(this.object, Object.freeze(props));
+    } else {
+      return new Element(tag, props, children);
+    }
   };
   render = () => {
     this.vdom.curr = this.$[HYDRATE](this.object);
@@ -69,6 +81,7 @@ var Template = class {
         console.error(err);
       }
     }
+    console.log(this.vdom.prev, this.vdom.curr, this.dom);
     this.mounted = true;
     this.vdom.prev = this.vdom.curr;
   };
@@ -151,7 +164,7 @@ var Template = class {
                 node_index
               );
               if (is_array(children[i])) {
-                offset += children[i].length - 1;
+                offset += Math.min(0, children[i].length - 1);
               }
               if (!is_empty(prev_children[i]) && is_empty(children[i])) {
                 offset -= 1;
@@ -273,7 +286,7 @@ function is_node_list(value) {
   }
 }
 function is_empty(value) {
-  if (typeof value == "number") {
+  if (typeof value == "number" || typeof value == "string") {
     return false;
   }
   if (is_array(value)) {
@@ -287,6 +300,7 @@ function log(...m) {
 
 // plugin-rce/client/create.ts
 var REACTIVE = Symbol("react");
+var REF = Symbol("ref");
 function create(props) {
   const $ = {
     props,
@@ -298,6 +312,15 @@ function create(props) {
         value,
         index,
         $$type: REACTIVE
+      };
+      return this.state_map[index];
+    },
+    ref(value) {
+      const index = this.state_map.length;
+      this.state_map[index] = {
+        value,
+        index,
+        $$type: REF
       };
       return this.state_map[index];
     },
@@ -330,6 +353,8 @@ function create(props) {
         index++;
       }
       this.render();
+    },
+    set_props() {
     },
     [HYDRATE](_) {
       return [];
@@ -383,7 +408,19 @@ var defineElement_default = defineElement;
 function $state(init) {
   return init;
 }
+function $onMounted(callback) {
+  return callback;
+}
+function $onUnmounted(callback) {
+  return callback;
+}
+function $ref(target) {
+  return target;
+}
 export {
+  $onMounted,
+  $onUnmounted,
+  $ref,
   $state,
   Template,
   create_default as create,

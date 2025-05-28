@@ -182,3 +182,9 @@ export function walk(node: AnyNode, visitors: Visitors) {
     }
   }
 }
+
+
+export function is_node(node: any): node is acorn.AnyNode {
+  if (typeof node != 'object') return
+  return ('type' in node && 'start' in node && 'end' in node)
+}

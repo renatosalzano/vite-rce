@@ -2,6 +2,7 @@ import { HYDRATE } from "../constant";
 import { Template } from "./Template";
 
 const REACTIVE = Symbol('react');
+const REF = Symbol('ref')
 
 export type Reactive = {
   value: any;
@@ -31,6 +32,20 @@ function create(props: { [key: string]: any }) {
       }
 
       return this.state_map[index];
+    },
+
+    ref(value: any) {
+
+      const index = this.state_map.length;
+
+      this.state_map[index] = {
+        value,
+        index,
+        $$type: REF
+      }
+
+      return this.state_map[index];
+
     },
 
     is_state(value: any) {
@@ -75,6 +90,10 @@ function create(props: { [key: string]: any }) {
       }
 
       this.render()
+
+    },
+
+    set_props() {
 
     },
 

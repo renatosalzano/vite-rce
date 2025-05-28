@@ -15,7 +15,8 @@ class Template {
     curr: []
   }
   dom = []
-  last_element = null
+
+  partials = new Map<string, Function>()
 
   mounted = false
 
@@ -27,8 +28,25 @@ class Template {
   }
 
 
-  object = (tag: string, props: any, ...children: any) => {
-    return new Element(tag, props, children)
+  object = (tag: string | Function, props: any, ...children: any) => {
+
+    // #region Component Object
+    if (typeof tag == 'function') {
+
+      if (!this.partials.has(tag.name)) {
+        this.partials.set(tag.name, tag(this.$))
+      }
+
+      const h = this.partials.get(tag.name)
+
+      if (children.length > 0) {
+        props.children = children
+      }
+
+      return h(this.object, Object.freeze(props))
+    } else {
+      return new Element(tag, props, children)
+    }
   }
 
   render = () => {
@@ -91,7 +109,7 @@ class Template {
 
     }
 
-    // console.log(this.vdom.prev, this.vdom.curr, this.dom)
+    console.log(this.vdom.prev, this.vdom.curr, this.dom)
     this.mounted = true
     this.vdom.prev = this.vdom.curr
   }
@@ -204,16 +222,6 @@ class Template {
 
           for (let i = 0; i < children.length; i++) {
 
-            // if (prev_children == undefined || children == undefined) {
-            //   log('-- ERROR --')
-            //   log('index', i)
-            //   log(prev)
-            //   log(curr)
-            //   log(this.vdom.prev)
-            //   log('-- ERROR END --')
-            //   continue
-            // }
-
             if (is_empty(prev_children[i]) && is_empty(children[i])) {
               offset--
             } else {
@@ -231,7 +239,7 @@ class Template {
               )
 
               if (is_array(children[i])) {
-                offset += children[i].length - 1
+                offset += Math.min(0, children[i].length - 1)
               }
 
               if (!is_empty(prev_children[i]) && is_empty(children[i])) {
@@ -408,7 +416,7 @@ function is_node_list(value: any): value is NodeList {
 
 function is_empty(value: any) {
 
-  if (typeof value == 'number') {
+  if (typeof value == 'number' || typeof value == 'string') {
     return false
   }
 

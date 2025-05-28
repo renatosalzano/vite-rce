@@ -1,5 +1,5 @@
 import { create, register } from '@rce/dev';
-import { $state, defineElement } from "@rce";
+import { $state, $ref, defineElement } from "@rce";
 const $hook = ($) =>()=> {
   let show = $.state(false);
   function toggle() {
@@ -22,19 +22,18 @@ const $hook2 = ($) =>() => {
 };
 
 
-const Partial = (props) => {
+const Partial = ($) =>(h,props) => {
   return /* @__PURE__ */ h("ul", null, props.list.map((i) => /* @__PURE__ */ h("li", null, "item ", i)));
 };
+const Button = ($) =>function (h,{ onclick, children }) {
+  return /* @__PURE__ */ h("button", { onclick }, children);
+}
 export const Component = ({ title = "hello rce" }) => {
  const $ = create({ title });
   let array = $.state([1, 2]);
   let nested = $.state([]);
   let { show, toggle } = $hook($)();
-  let obj = $.state({
-    nested: {
-      list: [1, 2, 3]
-    }
-  });
+  const ref = $.ref(null);
   function add() {
 let [_array] = $([array]);
 
@@ -58,10 +57,19 @@ let [_array] = $([array]);
   
 $.set([array], [_array]);
 };
-  const props = {};
-  return /* @__PURE__ */ $.h = (h) => {
-const [_array,_nested,_show,_toggle,_obj] = $([array,nested,show,toggle,obj]);
-return [ /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { ...props, class: _show ? "show" : _array.length > 0 ? "greater than 0" : "is 0" }, /* @__PURE__ */ h("button", { onclick: _toggle }, "toggle"), /* @__PURE__ */ h("button", { onclick: add }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "min")), /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("strong", null, "counter is ", _array.length)), _array.length > 3 && /* @__PURE__ */ h("div", null, "random"), _array.map((i) => /* @__PURE__ */ h("div", null, "level 0 - ", i, _show ? /* @__PURE__ */ h("div", null, "show") : null))]}, $;
+  const obj = {
+    show
+  };
+  const props = {
+    obj,
+    onclick: add,
+    test: {
+      nested: {
+        key: array.lenght
+      }
+    }
+  };
+  return /* @__PURE__ */ $.h = (h) => [ /* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class: $(show) ? "show" : $(array).length > 0 ? "greater than 0" : "is 0" }, /* @__PURE__ */ h("button", { ref, onclick: $(toggle) }, "toggle"), /* @__PURE__ */ h("button", { ...props }, "add"), /* @__PURE__ */ h(Button, { onclick: minus }, /* @__PURE__ */ h("strong", null, "minus"), " ", $(array).length)), /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("strong", null, "counter is ", $(array).length)), $(array).length > 3 && /* @__PURE__ */ h("div", null, "random"), $(array).map((i) => /* @__PURE__ */ h("div", null, "level 0 - ", i, $(show) ? /* @__PURE__ */ h("div", null, "show") : null))], $;
 }
 register(Component, 'my-component');
 ;

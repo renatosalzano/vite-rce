@@ -4,12 +4,20 @@ import defineElement from "./defineElement";
 // import Cache from "./Cache";
 import { Template } from "./Template";
 
-import { $state } from "./hooks";
+import {
+  $ref,
+  $state,
+  $onMounted,
+  $onUnmounted
+} from "./hooks";
 
 export {
   create,
   register,
   defineElement,
+  $ref,
   $state,
+  $onMounted,
+  $onUnmounted,
   Template,
 }

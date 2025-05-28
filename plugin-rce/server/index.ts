@@ -82,6 +82,12 @@ async function transform(id: string, source_code: string) {
             if (type == 'custom_element') {
 
               transform_custom_element($node, jsx_node);
+            } else {
+
+              Transformer.insert(node.start, `const ${node.id.name} = (${CONFIG_ID}) =>`)
+              Transformer.replace(node.id, '')
+
+              transform_partial($node, node, jsx_node)
             }
           }
 
@@ -178,8 +184,18 @@ async function transform(id: string, source_code: string) {
 
                   } else {
 
-                    // COMPONENT
+                    const { props, props_string } = parse_props(var_node.init.params);
 
+                    // COMPONENT
+                    const node = reactive_node(var_node.init.body, {
+                      props,
+                      props_string
+                    })
+
+                    Transformer.insert(var_node.init.start, `(${CONFIG_ID}) =>`)
+                    transform_partial(node, var_node.init, jsx_node)
+
+                    // transform_partial(id, var_node.init, node, jsx_node)
                   }
 
                 }

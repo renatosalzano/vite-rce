@@ -1,8 +1,9 @@
-import { acorn, type ReactiveNode, return_keys, walk } from "../ast";
-import { CONFIG_ID, HOOK_START, STATE } from "../../constant";
+import { acorn, is_identifier, type ReactiveNode, return_keys, walk } from "../ast";
+import { CONFIG_ID, HOOK_REF, HOOK_START, STATE } from "../../constant";
 import Transformer from "../Transformer";
+import { transform_object } from "./object";
 
-function transform_body($node: ReactiveNode, transform_hook = false) {
+function transform_body($node: ReactiveNode) {
 
   function parse_state_keys(node: acorn.AnyNode) {
 
@@ -61,7 +62,7 @@ function transform_body($node: ReactiveNode, transform_hook = false) {
 
             case 'CallExpression': {
 
-              // STATE
+              // #region STATE
 
               if (node.kind == 'let') {
 
@@ -84,7 +85,16 @@ function transform_body($node: ReactiveNode, transform_hook = false) {
                 }
 
               }
-              // END STATE
+              // #region REF
+
+              if (is_ref(_node.init)) {
+
+                // parse_state_keys(_node.id)
+
+                Transformer.replace(_node.init.callee, '$.ref')
+
+                break;
+              }
 
               if (is_hook(_node.init)) {
 
@@ -97,6 +107,8 @@ function transform_body($node: ReactiveNode, transform_hook = false) {
 
                 break;
               }
+
+
               break;
             }
 
@@ -107,6 +119,12 @@ function transform_body($node: ReactiveNode, transform_hook = false) {
                 parse_method(_node.init)
               }
 
+              break;
+            }
+
+            case 'ObjectExpression': {
+
+              transform_object($node, _node.init)
               break;
             }
           }
@@ -140,6 +158,11 @@ function is_state(node: acorn.CallExpression) {
 
 function is_hook(node: acorn.CallExpression) {
   return node.callee.type == 'Identifier' && node.callee.name.startsWith(HOOK_START);
+}
+
+
+function is_ref(node: acorn.CallExpression) {
+  return node.callee.type == 'Identifier' && node.callee.name == HOOK_REF;
 }
 
 export default transform_body;
