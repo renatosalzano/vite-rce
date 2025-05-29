@@ -1,36 +1,36 @@
 import { CONFIG_ID } from "../../constant";
-import { acorn, is_node, ReactiveNode, walk } from "../ast";
+import { acorn, is_node, ReactiveNode } from "../ast";
 import Transformer from "../Transformer";
 
 
-
-
 export function transform_object($node: ReactiveNode, object: acorn.ObjectExpression) {
-
-
 
   for (const property of object.properties) {
 
     if (property.type == 'Property' && property.value) {
 
-      // if ($node.state.has(property.key.))
+      if (
+        property.key.type == 'Identifier'
+        && property.value.type == 'Identifier'
+        && property.key.name == property.value.name
+        && $node.state.has(property.key.name)
+      ) {
+
+        Transformer.insert(property.key.end, `:${CONFIG_ID}(${property.key.name})`)
+        continue
+      }
 
       if (property.value) {
 
-        switch (property.value.type) {
-          case 'ObjectExpression':
-            transform_object($node, property.value)
-            break
-          default:
+        if (property.value.type == 'ObjectExpression') {
+          transform_object($node, property.value)
+        } else {
 
-            each_identifier(property.value, (node) => {
-              if ($node.state.has(node.name)) {
-                console.log(Transformer.node(node))
-              }
-            })
-
-          // console.log(Transformer.node(property.value))
-          // console.log(property.value)
+          each_identifier(property.value, (node) => {
+            if ($node.state.has(node.name)) {
+              Transformer.wrap(node, `${CONFIG_ID}(`, ')')
+            }
+          })
         }
 
       }

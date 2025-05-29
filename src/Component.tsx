@@ -59,7 +59,7 @@ function Button({ onclick, children }: { onclick: Function, children?: any }) {
 export const Component = ({ title = 'hello rce' }) => {
 
   // let show = $state(false)
-  let array = $state([1, 2])
+  let array = $state([])
   let nested = $state([])
 
   let { show, toggle } = $hook()
@@ -91,7 +91,8 @@ export const Component = ({ title = 'hello rce' }) => {
   // }
 
   const obj = {
-    show
+    show,
+    usless: true
   }
 
   const props = {
@@ -108,21 +109,27 @@ export const Component = ({ title = 'hello rce' }) => {
     <my-component>
       <h2>my component</h2>
 
+      {/* <slot name='subtitle'></slot> */}
+
       <div class={show ? 'show' : (array.length > 0 ? "greater than 0" : "is 0")}>
-        <button ref={ref} onclick={toggle}>toggle</button>
+        {/* <button ref={ref} onclick={toggle}>toggle</button> */}
         <button {...props}>add</button>
         {/* <button onclick={minus}>min</button> */}
-        <Button onclick={minus}><strong>minus</strong> {array.length}</Button>
+        {/* <Button onclick={minus}><strong>minus</strong> {array.length}</Button> */}
         {/* <button onclick={show ? add : minus}>{show ? 'add' : 'minus'}</button>
 
         <button onclick={show ? add : null}>{show ? 'add' : 'nothing'} {show && 'add something'}</button> */}
       </div>
 
-      <div>
-        <strong>counter is {array.length}</strong>
-      </div>
+      <p>
+        counter {array.length}
+      </p>
 
-      {array.length > 3 && <div>random</div>}
+      ROOT COUNTER {array.length}
+
+      {/* {show && <div>random</div>}
+
+      {show ? "show" : <div>element</div>} */}
 
       {/* {show
         ? <div>{array.length > 0 ? "full" : "empty"}</div>
@@ -140,21 +147,12 @@ export const Component = ({ title = 'hello rce' }) => {
 
       {/* <Partial list={array} /> */}
 
-      {array.map((i) => (
+      {/* {array.map((i) => (
         <div>level 0 - {i}
-          {/* {i == 2 && <div>condition by param</div>}
-          {i == 3 && array.map((i) => (
-            <div>
-              level 1 - {i}
-              {array.map((i) => (
-                <div>level 2 - {i}</div>
-              ))}
-            </div>
-          ))} */}
           {show ? <div>show</div> : null}
         </div>
       ))
-      }
+      } */}
 
     </my-component>
   )

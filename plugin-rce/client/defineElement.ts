@@ -35,23 +35,24 @@ function defineElement(component: (props: any) => Config) {
       }
 
       connectedCallback() {
-        console.log('mounted');
+        console.log('mounted', this);
+
+        const slots = {}
+
+        for (const child of this.children) {
+          if (child.localName == 'slot') {
+            for (const attr of child.attributes) {
+              slots[attr.name] = child.childNodes
+              child.remove()
+              break
+            }
+          }
+        }
+        // debugger
 
         const { template } = instances.get(this);
 
         template.render()
-
-        // template.append(this);
-        // template.append(this);
-        // const html = self.render(self.h);
-        // console.log(self.elements);
-        // console.log(self.element_list)
-        // self.is_mounted = true;
-
-
-        // // console.log(html)
-
-        // append(this, html as any);
 
       }
 

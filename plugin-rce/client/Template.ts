@@ -3,7 +3,7 @@ import { Config } from "./create";
 
 // #region Template
 
-type AnyNode = Element | Element[] | string | boolean;
+type AnyNode = Element | Element[] | string | boolean | Text;
 
 class Template {
 
@@ -11,10 +11,9 @@ class Template {
   root: HTMLElement;
 
   vdom = {
-    prev: [],
-    curr: []
+    curr: [],
+    next: []
   }
-  dom = []
 
   partials = new Map<string, Function>()
 
@@ -51,56 +50,32 @@ class Template {
 
   render = () => {
 
-    this.vdom.curr = this.$[HYDRATE](this.object);
-
-    let offset = 0
+    this.vdom.next = this.$[HYDRATE](this.object);
 
     for (
       let i = 0;
-      i < this.vdom.curr.length;
+      i < this.vdom.next.length;
       i++
     ) {
 
-      const curr = this.vdom.curr[i]
+      let next = this.vdom.next[i]
 
       try {
 
         if (this.mounted) {
           // update
-          const prev = this.vdom.prev[i];
+          const curr = this.vdom.curr[i];
 
-          if (is_empty(prev) && is_empty(curr)) {
-            offset--
-          } else {
-
-            log(this.dom[i])
-
-            this.dom[i] = this.update(
-              this.dom[i],
-              prev,
-              curr,
-              this.root,
-              i + offset
-            )
-
-            if (is_array(curr)) {
-              offset += Math.min(0, curr.length - 1)
-            }
-
-            if (!is_empty(prev) && is_empty(curr)) {
-              offset--
-            }
-
+          if (typeof next == 'string' || typeof next == 'number') {
+            next = new Text(next as any)
           }
+
+          this.vdom.next[i] = this.update(curr, next, this.root, i)
 
         } else {
           // create
-          this.dom[i] = this.create(curr)
-          this.append(this.root, this.dom[i])
 
-          if (is_array(curr)) {
-            this.dom[i] = this.root.childNodes
-          }
+          this.vdom.next[i] = this.create(next, this.root)
         }
 
       } catch (err) {
@@ -109,19 +84,19 @@ class Template {
 
     }
 
-    console.log(this.vdom.prev, this.vdom.curr, this.dom)
     this.mounted = true
-    this.vdom.prev = this.vdom.curr
+    log(this.vdom)
+    this.vdom.curr = this.vdom.next
   }
 
 
-  create = (item: AnyNode) => {
+  create = (node: AnyNode, parent?: HTMLElement) => {
 
-    if (item == null) return null
+    if (node == null) return null
 
-    switch (item.constructor) {
+    switch (node.constructor) {
       case Element: {
-        const { tag, props, events, children } = item as Element
+        const { tag, props, events, children } = node as Element
 
         const element = document.createElement(tag)
 
@@ -134,17 +109,30 @@ class Template {
         }
 
         for (const child of children) {
-          this.append(element, this.create(child))
+          this.create(child, element)
         }
 
-        return element
+        (node as Element).target = element
+
+        if (parent) {
+          parent.append(element)
+        }
+
+        return node
       }
+      case String:
       case Number:
-      case String: {
-        return item;
+      case Text: {
+
+        if (typeof node == 'string' || typeof node == 'number') {
+          node = new Text(node as any)
+        }
+
+        if (parent) parent.append(node as any)
+        return node
       }
       case Array: {
-        return (item as any).map(e => this.create(e))
+        return (node as any).map(e => this.create(e, parent))
       }
       default:
         return null
@@ -154,6 +142,109 @@ class Template {
   }
 
   update = (
+    curr: any,
+    next: any,
+    parent: HTMLElement,
+    index: number
+  ) => {
+
+    if (next) {
+
+      switch (next.constructor) {
+        case Element: {
+
+          if (curr == null) {
+            this.create(next)
+            this.append_at(parent, next.target, index)
+            return next
+          }
+
+          if (is_text_node(curr)) {
+
+            this.create(next)
+            curr.replaceWith(next.target)
+            return next
+          }
+
+          if (is_html(curr.target)) {
+
+            const { props, events, children } = next
+
+            for (const attr of curr.target.attributes) {
+
+              if (attr.name in props) {
+
+                if (attr.value != props[attr.name]) {
+                  curr.target.setAttribute(attr.name, props[attr.name])
+                }
+
+              } else {
+                curr.target.removeAttribute(attr.name)
+              }
+            }
+
+            for (const key in events) {
+
+              curr.target[key] = typeof events[key] == 'function'
+                ? events[key]
+                : null
+
+            }
+
+            const curr_children = curr.children
+
+            for (let i = 0; i < children.length; i++) {
+
+              this.update(
+                curr_children[i],
+                next.children[i],
+                curr.target,
+                i
+              )
+            }
+
+            return curr
+
+          }
+
+          return next
+        }
+        case String: {
+          debugger
+          break
+        }
+        case Text: {
+
+          if (is_text_node(curr)) {
+
+            if (curr.nodeValue != next.nodeValue) {
+              curr.nodeValue = next.nodeValue
+            }
+
+            return curr
+          }
+
+          if (is_html(curr.target)) {
+            curr.target.replaceWith(next)
+          }
+
+          return next
+        }
+        default:
+          return next
+      }
+    } else {
+
+      if (curr?.target) {
+        curr.target.remove()
+      }
+
+      return null
+    }
+
+  }
+
+  _update = (
     node: HTMLElement | ChildNode | HTMLElement[] | NodeListOf<ChildNode>,
     prev: any,
     curr: any,
@@ -217,12 +308,16 @@ class Template {
           }
 
           // const max = Math.max(prev.childNodes.length, children.length)
-          const prev_children = prev.children;
+          const prev_children = prev.children || [];
           let offset = 0
+
+          console.table(prev_children, children)
 
           for (let i = 0; i < children.length; i++) {
 
-            if (is_empty(prev_children[i]) && is_empty(children[i])) {
+            const prev_children_i = prev_children[i] || false
+
+            if (is_empty(prev_children_i) && is_empty(children[i])) {
               offset--
             } else {
 
@@ -232,7 +327,7 @@ class Template {
                 is_array(children[i])
                   ? node.childNodes
                   : node.childNodes[node_index] ?? null,
-                prev_children[i] || false,
+                prev_children_i,
                 children[i],
                 node,
                 node_index
@@ -242,7 +337,7 @@ class Template {
                 offset += Math.min(0, children[i].length - 1)
               }
 
-              if (!is_empty(prev_children[i]) && is_empty(children[i])) {
+              if (!prev_children_i && is_empty(children[i])) {
                 offset -= 1
               }
 
@@ -315,16 +410,16 @@ class Template {
     }
   }
 
-  append(element: any, node: any) {
+  append(element: HTMLElement, node: Element | Element[] | null) {
 
     if (node == null) return;
 
     if (Array.isArray(node)) {
-      for (const n of node) {
-        element.append(n)
+      for (const e of node) {
+        element.append(e.target)
       }
     } else {
-      element.append(node)
+      element.append(node.target)
     }
 
   }
@@ -336,7 +431,7 @@ class Template {
       let prev_element: HTMLElement;
 
       while (index > 0) {
-        const item = element.childNodes[index - 1]
+        const item = element.childNodes[index]
 
         if (is_node(item)) {
           prev_element = item
@@ -364,6 +459,7 @@ class Element {
   props: any = {}
   events: any = {}
   children: any[]
+  target: HTMLElement | Text
 
   constructor(tag: string, props: any = {}, children: any[]) {
 
@@ -378,8 +474,24 @@ class Element {
       }
     }
 
+    for (let i = 0; i < children.length; i++) {
+
+      const child = children[i]
+
+      switch (child.constructor) {
+        case String:
+        case Number:
+          children[i] = new Text(child)
+          break
+        case Boolean:
+          children[i] = null
+
+      }
+    }
+
   }
 }
+
 
 function is_array(value: any): value is Array<unknown> {
   return Array.isArray(value)

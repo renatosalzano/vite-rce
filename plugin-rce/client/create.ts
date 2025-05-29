@@ -78,7 +78,7 @@ function create(props: { [key: string]: any }) {
       return ret;
     },
 
-    set(setters: any[], getters: []) {
+    set(setters: any[], getters: any[]) {
       let index = 0;
       for (const setter of setters) {
 
@@ -107,16 +107,23 @@ function create(props: { [key: string]: any }) {
     render() { }
   }
 
-  const ret = Object.assign((value: any) => {
+  const ret = Object.assign((getter: any, setter?: any) => {
 
-    if (Array.isArray(value)) {
-      return $.get(value);
+    if (Array.isArray(getter) && Array.isArray(setter)) {
+      console.log('set')
+      $.set(getter, setter)
+      $.render()
+      return
     }
 
-    if ($.is_state(value)) {
-      return $.get_state(value);
+    if (Array.isArray(getter)) {
+      return $.get(getter);
     }
-    return value;
+
+    if ($.is_state(getter)) {
+      return $.get_state(getter);
+    }
+    return getter;
   }, $)
 
   return ret;
