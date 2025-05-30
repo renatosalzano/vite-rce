@@ -40,8 +40,14 @@ function transform_jsx(_node: ReactiveNode, jsx: acorn.CallExpression) {
 
   walk(jsx, {
     Identifier(id) {
-      if ($node.state.has(id.name)) {
-        Transformer.wrap(id, `$(`, ')')
+      if ($node.features.has(id.name)) {
+
+        const feature_type = $node.features.get(id.name)
+
+        if (feature_type == 'state' || feature_type == 'hook') {
+          Transformer.wrap(id, `$(`, ')')
+        }
+
       }
     }
   })
@@ -148,7 +154,7 @@ function transform_factory(h_node: acorn.AnyNode) {
 
         walk(me.object, {
           Identifier(id) {
-            if ($node.state.has(id.name)) {
+            if ($node.features.has(id.name)) {
               deps.add(id.name);
               Transformer.wrap(id, `${CONFIG_ID}(`, ')')
             }
@@ -190,7 +196,7 @@ function transform_factory(h_node: acorn.AnyNode) {
 
       walk(h_node.left, {
         Identifier(id) {
-          if ($node.state.has(id.name)) {
+          if ($node.features.has(id.name)) {
             deps.add(id.name);
             Transformer.wrap(id, `${CONFIG_ID}(`, ')')
           }
@@ -263,7 +269,7 @@ function conditional_expr(
 
   walk(node.test, {
     Identifier(id) {
-      if ($node.state.has(id.name)) {
+      if ($node.features.has(id.name)) {
         deps.add(id.name);
         Transformer.wrap(id, `${CONFIG_ID}(`, ')')
       }

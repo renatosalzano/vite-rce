@@ -1,11 +1,11 @@
-import { acorn, is_identifier, type ReactiveNode, return_keys, walk } from "../ast";
+import { acorn, FeatureTypes, is_identifier, type ReactiveNode, return_keys, walk } from "../ast";
 import { CONFIG_ID, HOOK_REF, HOOK_START, STATE } from "../../constant";
 import Transformer from "../Transformer";
 import { transform_object } from "./object";
 
 function transform_body($node: ReactiveNode) {
 
-  function parse_state_keys(node: acorn.AnyNode) {
+  function parse_features_keys(node: acorn.AnyNode, type: FeatureTypes) {
 
     walk(node, {
       Identifier(id) {
@@ -14,7 +14,7 @@ function transform_body($node: ReactiveNode) {
           throw '$ is reserved keyword';
         }
 
-        $node.state.add(id.name)
+        $node.features.set(id.name, type)
 
       }
     })
@@ -22,28 +22,33 @@ function transform_body($node: ReactiveNode) {
 
   function parse_method(node: acorn.Function) {
 
-    const reactive_keys = new Set<string>()
+    const features_keys = new Set<string>()
 
     walk(node as acorn.AnyNode, {
       Identifier(node) {
-        if ($node.state.has(node.name)) {
+
+        if ($node.features.has(node.name)) {
 
           Transformer.insert(node.start, '_');
-          reactive_keys.add(node.name);
+          features_keys.add(node.name);
           // methods.add(caller)
         }
+
       }
     });
 
-    if (reactive_keys.size == 0) return;
+    if (features_keys.size == 0) return;
 
-    const getter_keys = [...reactive_keys].map(k => `_${k}`).join(',');
-    const keys = [...reactive_keys].join(',');
+    const getter_keys = [...features_keys].map(k => `_${k}`).join(',');
+    const keys = [...features_keys].join(',');
 
     if (node.body.type == 'BlockStatement') {
 
       Transformer.insert(node.body.start + 1, `\nlet [${getter_keys}] = $([${keys}]);\n`);
       Transformer.insert(node.body.end - 1, `\n$.set([${keys}], [${getter_keys}]);\n`);
+    } else {
+
+      console.log('TODO')
     }
 
   }
@@ -72,9 +77,7 @@ function transform_body($node: ReactiveNode) {
                     throw '$state must have 1 argument'
                   }
 
-                  // const state = return_keys(_node.id);
-
-                  parse_state_keys(_node.id);
+                  parse_features_keys(_node.id, 'state')
 
                   Transformer.replace(_node.init.callee, '$.state')
 
@@ -91,6 +94,8 @@ function transform_body($node: ReactiveNode) {
 
                 // parse_state_keys(_node.id)
 
+                parse_features_keys(_node.id, 'ref')
+
                 Transformer.replace(_node.init.callee, '$.ref')
 
                 break;
@@ -98,7 +103,7 @@ function transform_body($node: ReactiveNode) {
 
               if (is_hook(_node.init)) {
 
-                parse_state_keys(_node.id)
+                parse_features_keys(_node.id, 'hook')
 
                 Transformer.insert(
                   _node.init.callee.end,
@@ -143,9 +148,9 @@ function transform_body($node: ReactiveNode) {
 
   }
 
-  $node.reactive_keys_reg = $node.state.size == 0
-    ? undefined
-    : new RegExp([...$node.state].join('|'), 'g');
+  // $node.reactive_keys_reg = $node.state.size == 0
+  //   ? undefined
+  //   : new RegExp([...$node.state].join('|'), 'g');
 
 }
 

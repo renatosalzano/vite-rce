@@ -101,7 +101,14 @@ class Template {
         const element = document.createElement(tag)
 
         for (const key in props) {
-          element.setAttribute(key, props[key])
+
+          if (key == 'ref') {
+            this.$.set_feature(props[key], element)
+            console.log(props[key])
+          } else {
+            element.setAttribute(key, props[key])
+          }
+
         }
 
         for (const key in events) {
@@ -129,6 +136,7 @@ class Template {
         }
 
         if (parent) parent.append(node as any)
+
         return node
       }
       case Array: {
@@ -170,6 +178,11 @@ class Template {
 
             const { props, events, children } = next
 
+            if (props?.ref) {
+
+              delete props.ref
+            }
+
             for (const attr of curr.target.attributes) {
 
               if (attr.name in props) {
@@ -195,7 +208,7 @@ class Template {
 
             for (let i = 0; i < children.length; i++) {
 
-              this.update(
+              curr.children[i] = this.update(
                 curr_children[i],
                 next.children[i],
                 curr.target,
@@ -209,11 +222,13 @@ class Template {
 
           return next
         }
-        case String: {
-          debugger
-          break
-        }
         case Text: {
+
+          if (curr == null) {
+            const text_node = this.create(next)
+            this.append_at(parent, text_node, index)
+            return text_node
+          }
 
           if (is_text_node(curr)) {
 
@@ -230,10 +245,31 @@ class Template {
 
           return next
         }
+        case Array: {
+
+          const max = Math.max(curr.length, next.length)
+
+          for (let i = 0; i < max; i++) {
+
+            next[i] = this.update(
+              curr[i] ?? null,
+              next[i] ?? null,
+              parent,
+              i + index
+            )
+
+          }
+
+          return next
+        }
         default:
           return next
       }
     } else {
+
+      if (is_text_node(curr)) {
+        curr.remove()
+      }
 
       if (curr?.target) {
         curr.target.remove()
@@ -244,171 +280,171 @@ class Template {
 
   }
 
-  _update = (
-    node: HTMLElement | ChildNode | HTMLElement[] | NodeListOf<ChildNode>,
-    prev: any,
-    curr: any,
-    parent: HTMLElement,
-    index: number
-  ) => {
+  // _update = (
+  //   node: HTMLElement | ChildNode | HTMLElement[] | NodeListOf<ChildNode>,
+  //   prev: any,
+  //   curr: any,
+  //   parent: HTMLElement,
+  //   index: number
+  // ) => {
 
-    if (is_empty(curr)) {
+  //   if (is_empty(curr)) {
 
-      if (is_node(node)) {
-        node.remove()
-      }
+  //     if (is_node(node)) {
+  //       node.remove()
+  //     }
 
-      if (is_node_list(node)) {
-        node[index].remove()
-        return node
-      }
+  //     if (is_node_list(node)) {
+  //       node[index].remove()
+  //       return node
+  //     }
 
-      return null
-    }
+  //     return null
+  //   }
 
-    // console.log('update', node, curr)
-    switch (curr.constructor) {
-      case Element: {
+  //   // console.log('update', node, curr)
+  //   switch (curr.constructor) {
+  //     case Element: {
 
-        if (node == null) {
-          const res = this.create(curr)
-          this.append_at(parent, res, index)
+  //       if (node == null) {
+  //         const res = this.create(curr)
+  //         this.append_at(parent, res, index)
 
-          return res
-        }
+  //         return res
+  //       }
 
-        if (is_text_node(node)) {
-          node.replaceWith(this.create(curr));
-          return node
-        }
+  //       if (is_text_node(node)) {
+  //         node.replaceWith(this.create(curr));
+  //         return node
+  //       }
 
-        if (is_html(node)) {
+  //       if (is_html(node)) {
 
-          const { props, events, children } = curr;
+  //         const { props, events, children } = curr;
 
-          for (const attr of node.attributes) {
+  //         for (const attr of node.attributes) {
 
-            if (attr.name in props) {
+  //           if (attr.name in props) {
 
-              if (attr.value != props[attr.name]) {
-                node.setAttribute(attr.name, props[attr.name])
-              }
+  //             if (attr.value != props[attr.name]) {
+  //               node.setAttribute(attr.name, props[attr.name])
+  //             }
 
-            } else {
-              node.removeAttribute(attr.name)
-            }
-          }
+  //           } else {
+  //             node.removeAttribute(attr.name)
+  //           }
+  //         }
 
-          for (const key in events) {
+  //         for (const key in events) {
 
-            node[key] = typeof events[key] == 'function'
-              ? events[key]
-              : null
+  //           node[key] = typeof events[key] == 'function'
+  //             ? events[key]
+  //             : null
 
-          }
+  //         }
 
-          // const max = Math.max(prev.childNodes.length, children.length)
-          const prev_children = prev.children || [];
-          let offset = 0
+  //         // const max = Math.max(prev.childNodes.length, children.length)
+  //         const prev_children = prev.children || [];
+  //         let offset = 0
 
-          console.table(prev_children, children)
+  //         console.table(prev_children, children)
 
-          for (let i = 0; i < children.length; i++) {
+  //         for (let i = 0; i < children.length; i++) {
 
-            const prev_children_i = prev_children[i] || false
+  //           const prev_children_i = prev_children[i] || false
 
-            if (is_empty(prev_children_i) && is_empty(children[i])) {
-              offset--
-            } else {
+  //           if (is_empty(prev_children_i) && is_empty(children[i])) {
+  //             offset--
+  //           } else {
 
-              const node_index = i + offset
+  //             const node_index = i + offset
 
-              this.update(
-                is_array(children[i])
-                  ? node.childNodes
-                  : node.childNodes[node_index] ?? null,
-                prev_children_i,
-                children[i],
-                node,
-                node_index
-              )
+  //             this.update(
+  //               is_array(children[i])
+  //                 ? node.childNodes
+  //                 : node.childNodes[node_index] ?? null,
+  //               prev_children_i,
+  //               children[i],
+  //               node,
+  //               node_index
+  //             )
 
-              if (is_array(children[i])) {
-                offset += Math.min(0, children[i].length - 1)
-              }
+  //             if (is_array(children[i])) {
+  //               offset += Math.min(0, children[i].length - 1)
+  //             }
 
-              if (!prev_children_i && is_empty(children[i])) {
-                offset -= 1
-              }
+  //             if (!prev_children_i && is_empty(children[i])) {
+  //               offset -= 1
+  //             }
 
-            }
+  //           }
 
-          }
+  //         }
 
-        }
+  //       }
 
-        return node;
-      }
-      // #region List
-      case Array: {
+  //       return node;
+  //     }
+  //     // #region List
+  //     case Array: {
 
-        // log('-- LIST --')
+  //       // log('-- LIST --')
 
-        // log(prev)
-        // log(curr)
+  //       // log(prev)
+  //       // log(curr)
 
-        // log('-- LIST END --')
+  //       // log('-- LIST END --')
 
-        const max = Math.max(prev.length, curr.length)
+  //       const max = Math.max(prev.length, curr.length)
 
-        for (let i = 0; i < max; i++) {
+  //       for (let i = 0; i < max; i++) {
 
-          if (i < curr.length) {
+  //         if (i < curr.length) {
 
-            this.update(
-              node[i + index] || null,
-              prev[i] || false,
-              curr[i],
-              parent,
-              i + index
-            )
+  //           this.update(
+  //             node[i + index] || null,
+  //             prev[i] || false,
+  //             curr[i],
+  //             parent,
+  //             i + index
+  //           )
 
-          } else {
-            node[i + index].remove()
-          }
-        }
+  //         } else {
+  //           node[i + index].remove()
+  //         }
+  //       }
 
-        return node
-      }
-      case Number:
-      case String: {
+  //       return node
+  //     }
+  //     case Number:
+  //     case String: {
 
-        if (is_html(node)) {
-          node.replaceWith(new Text(curr));
-          break
-        }
+  //       if (is_html(node)) {
+  //         node.replaceWith(new Text(curr));
+  //         break
+  //       }
 
-        if (is_text_node(node)) {
+  //       if (is_text_node(node)) {
 
-          if (node.nodeValue != curr) {
-            node.nodeValue = curr;
-          }
+  //         if (node.nodeValue != curr) {
+  //           node.nodeValue = curr;
+  //         }
 
-        } else {
-          this.append_at(parent, curr, index)
-        }
+  //       } else {
+  //         this.append_at(parent, curr, index)
+  //       }
 
-        break
-      }
-      case Boolean: {
+  //       break
+  //     }
+  //     case Boolean: {
 
-        if (is_node(node)) {
-          node.remove()
-          return null
-        }
-      }
-    }
-  }
+  //       if (is_node(node)) {
+  //         node.remove()
+  //         return null
+  //       }
+  //     }
+  //   }
+  // }
 
   append(element: HTMLElement, node: Element | Element[] | null) {
 
@@ -451,7 +487,7 @@ class Template {
 }
 
 
-// #region ObjectElement
+// #region Element
 
 class Element {
 
@@ -474,19 +510,28 @@ class Element {
       }
     }
 
-    for (let i = 0; i < children.length; i++) {
+    try {
 
-      const child = children[i]
+      for (let i = 0; i < children.length; i++) {
 
-      switch (child.constructor) {
-        case String:
-        case Number:
-          children[i] = new Text(child)
-          break
-        case Boolean:
-          children[i] = null
+        const child = children[i]
 
+        if (child == null) continue
+
+        switch (child.constructor) {
+          case String:
+          case Number:
+            children[i] = new Text(child)
+            break
+          case Boolean:
+            children[i] = null
+
+        }
       }
+
+    } catch (err) {
+      console.log(err)
+      debugger
     }
 
   }

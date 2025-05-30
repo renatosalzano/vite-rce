@@ -1,6 +1,6 @@
 import { CONFIG_ID } from "../../constant";
 import { print } from "../../utils/shortcode";
-import { acorn, reactive_node, walk } from "../ast";
+import { acorn, reactive_node, return_keys, walk } from "../ast";
 import Transformer from "../Transformer";
 import transform_body from "./body";
 
@@ -21,9 +21,22 @@ export function transform_hook_declaration({ id, fn_node, is_var }: Props) {
     Transformer.insert(fn_node.start, `(${CONFIG_ID}) =>`)
   }
 
-  const node = reactive_node(fn_node.body)
-  // transform_body()
-  transform_body(node)
+  const $node = reactive_node(fn_node.body)
+
+  const keys = new Set<string>()
+
+  for (const param of fn_node.params) {
+
+    for (const key of return_keys(param)) {
+      $node.features.set(key, 'hook')
+    }
+    // print(return_keys(param, keys))
+  }
+
+  print(keys)
+
+
+  transform_body($node)
 
 }
 

@@ -1,11 +1,12 @@
 import { create, register } from "@rce/dev";
 import { $state, $ref, defineElement } from "@rce";
-const $hook = ($) => () => {
+const $hook = ($) => (ref) => {
   let show = $.state(false);
   function toggle() {
-    let [_show] = $([show]);
+    let [_show, _ref] = $([show, ref]);
     _show = !_show;
-    $.set([show], [_show]);
+    console.log(_ref);
+    $.set([show, ref], [_show, _ref]);
   }
   return {
     show,
@@ -26,10 +27,9 @@ const Button = ($) => function(h, { onclick, children }) {
 };
 export const Component = ({ title = "hello rce" }) => {
   const $ = create({ title });
-  let array = $.state([]);
-  let nested = $.state([]);
-  let { show, toggle } = $hook($)();
   const ref = $.ref(null);
+  let array = $.state([1, 2]);
+  let { show, toggle } = $hook($)(ref);
   function add() {
     let [_array] = $([array]);
     _array.push(_array.length + 1);
@@ -60,7 +60,7 @@ export const Component = ({ title = "hello rce" }) => {
       }
     }
   };
-  return $.h = (h) => [/* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class: $(show) ? "show" : $(array).length > 0 ? "greater than 0" : "is 0" }, /* @__PURE__ */ h("button", { ...props }, "add")), /* @__PURE__ */ h("p", null, "counter ", $(array).length), "ROOT COUNTER ", $(array).length], $;
+  return $.h = (h) => [/* @__PURE__ */ h("h2", null, "my component"), /* @__PURE__ */ h("div", { class: $(show) ? "show" : $(array).length > 0 ? "greater than 0" : "is 0" }, /* @__PURE__ */ h("button", { ref, onclick: $(toggle) }, "toggle"), /* @__PURE__ */ h("button", { ...props }, "add"), /* @__PURE__ */ h("button", { onclick: minus }, "min")), $(show) ? /* @__PURE__ */ h("div", null, "show") : null, $(array).map((i) => /* @__PURE__ */ h("div", null, "level 0 - ", i, $(show) ? /* @__PURE__ */ h("div", null, "show") : null))], $;
 };
 register(Component, "my-component");
 ;

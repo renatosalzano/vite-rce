@@ -13,7 +13,7 @@ export function transform_object($node: ReactiveNode, object: acorn.ObjectExpres
         property.key.type == 'Identifier'
         && property.value.type == 'Identifier'
         && property.key.name == property.value.name
-        && $node.state.has(property.key.name)
+        && $node.features.has(property.key.name)
       ) {
 
         Transformer.insert(property.key.end, `:${CONFIG_ID}(${property.key.name})`)
@@ -27,7 +27,7 @@ export function transform_object($node: ReactiveNode, object: acorn.ObjectExpres
         } else {
 
           each_identifier(property.value, (node) => {
-            if ($node.state.has(node.name)) {
+            if ($node.features.has(node.name)) {
               Transformer.wrap(node, `${CONFIG_ID}(`, ')')
             }
           })

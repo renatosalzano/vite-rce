@@ -72,7 +72,12 @@ var Template = class {
         const { tag, props, events, children } = node;
         const element = document.createElement(tag);
         for (const key in props) {
-          element.setAttribute(key, props[key]);
+          if (key == "ref") {
+            this.$.set_feature(props[key], element);
+            console.log(props[key]);
+          } else {
+            element.setAttribute(key, props[key]);
+          }
         }
         for (const key in events) {
           element[key] = events[key];
@@ -118,6 +123,9 @@ var Template = class {
           }
           if (is_html(curr.target)) {
             const { props, events, children } = next;
+            if (props?.ref) {
+              delete props.ref;
+            }
             for (const attr of curr.target.attributes) {
               if (attr.name in props) {
                 if (attr.value != props[attr.name]) {
@@ -132,7 +140,7 @@ var Template = class {
             }
             const curr_children = curr.children;
             for (let i = 0; i < children.length; i++) {
-              this.update(
+              curr.children[i] = this.update(
                 curr_children[i],
                 next.children[i],
                 curr.target,
@@ -143,11 +151,12 @@ var Template = class {
           }
           return next;
         }
-        case String: {
-          debugger;
-          break;
-        }
         case Text: {
+          if (curr == null) {
+            const text_node = this.create(next);
+            this.append_at(parent, text_node, index);
+            return text_node;
+          }
           if (is_text_node(curr)) {
             if (curr.nodeValue != next.nodeValue) {
               curr.nodeValue = next.nodeValue;
@@ -159,120 +168,151 @@ var Template = class {
           }
           return next;
         }
+        case Array: {
+          const max = Math.max(curr.length, next.length);
+          for (let i = 0; i < max; i++) {
+            next[i] = this.update(
+              curr[i] ?? null,
+              next[i] ?? null,
+              parent,
+              i + index
+            );
+          }
+          return next;
+        }
         default:
           return next;
       }
     } else {
+      if (is_text_node(curr)) {
+        curr.remove();
+      }
       if (curr?.target) {
         curr.target.remove();
       }
       return null;
     }
   };
-  _update = (node, prev, curr, parent, index) => {
-    if (is_empty(curr)) {
-      if (is_node(node)) {
-        node.remove();
-      }
-      if (is_node_list(node)) {
-        node[index].remove();
-        return node;
-      }
-      return null;
-    }
-    switch (curr.constructor) {
-      case Element: {
-        if (node == null) {
-          const res = this.create(curr);
-          this.append_at(parent, res, index);
-          return res;
-        }
-        if (is_text_node(node)) {
-          node.replaceWith(this.create(curr));
-          return node;
-        }
-        if (is_html(node)) {
-          const { props, events, children } = curr;
-          for (const attr of node.attributes) {
-            if (attr.name in props) {
-              if (attr.value != props[attr.name]) {
-                node.setAttribute(attr.name, props[attr.name]);
-              }
-            } else {
-              node.removeAttribute(attr.name);
-            }
-          }
-          for (const key in events) {
-            node[key] = typeof events[key] == "function" ? events[key] : null;
-          }
-          const prev_children = prev.children || [];
-          let offset = 0;
-          console.table(prev_children, children);
-          for (let i = 0; i < children.length; i++) {
-            const prev_children_i = prev_children[i] || false;
-            if (is_empty(prev_children_i) && is_empty(children[i])) {
-              offset--;
-            } else {
-              const node_index = i + offset;
-              this.update(
-                is_array(children[i]) ? node.childNodes : node.childNodes[node_index] ?? null,
-                prev_children_i,
-                children[i],
-                node,
-                node_index
-              );
-              if (is_array(children[i])) {
-                offset += Math.min(0, children[i].length - 1);
-              }
-              if (!prev_children_i && is_empty(children[i])) {
-                offset -= 1;
-              }
-            }
-          }
-        }
-        return node;
-      }
-      // #region List
-      case Array: {
-        const max = Math.max(prev.length, curr.length);
-        for (let i = 0; i < max; i++) {
-          if (i < curr.length) {
-            this.update(
-              node[i + index] || null,
-              prev[i] || false,
-              curr[i],
-              parent,
-              i + index
-            );
-          } else {
-            node[i + index].remove();
-          }
-        }
-        return node;
-      }
-      case Number:
-      case String: {
-        if (is_html(node)) {
-          node.replaceWith(new Text(curr));
-          break;
-        }
-        if (is_text_node(node)) {
-          if (node.nodeValue != curr) {
-            node.nodeValue = curr;
-          }
-        } else {
-          this.append_at(parent, curr, index);
-        }
-        break;
-      }
-      case Boolean: {
-        if (is_node(node)) {
-          node.remove();
-          return null;
-        }
-      }
-    }
-  };
+  // _update = (
+  //   node: HTMLElement | ChildNode | HTMLElement[] | NodeListOf<ChildNode>,
+  //   prev: any,
+  //   curr: any,
+  //   parent: HTMLElement,
+  //   index: number
+  // ) => {
+  //   if (is_empty(curr)) {
+  //     if (is_node(node)) {
+  //       node.remove()
+  //     }
+  //     if (is_node_list(node)) {
+  //       node[index].remove()
+  //       return node
+  //     }
+  //     return null
+  //   }
+  //   // console.log('update', node, curr)
+  //   switch (curr.constructor) {
+  //     case Element: {
+  //       if (node == null) {
+  //         const res = this.create(curr)
+  //         this.append_at(parent, res, index)
+  //         return res
+  //       }
+  //       if (is_text_node(node)) {
+  //         node.replaceWith(this.create(curr));
+  //         return node
+  //       }
+  //       if (is_html(node)) {
+  //         const { props, events, children } = curr;
+  //         for (const attr of node.attributes) {
+  //           if (attr.name in props) {
+  //             if (attr.value != props[attr.name]) {
+  //               node.setAttribute(attr.name, props[attr.name])
+  //             }
+  //           } else {
+  //             node.removeAttribute(attr.name)
+  //           }
+  //         }
+  //         for (const key in events) {
+  //           node[key] = typeof events[key] == 'function'
+  //             ? events[key]
+  //             : null
+  //         }
+  //         // const max = Math.max(prev.childNodes.length, children.length)
+  //         const prev_children = prev.children || [];
+  //         let offset = 0
+  //         console.table(prev_children, children)
+  //         for (let i = 0; i < children.length; i++) {
+  //           const prev_children_i = prev_children[i] || false
+  //           if (is_empty(prev_children_i) && is_empty(children[i])) {
+  //             offset--
+  //           } else {
+  //             const node_index = i + offset
+  //             this.update(
+  //               is_array(children[i])
+  //                 ? node.childNodes
+  //                 : node.childNodes[node_index] ?? null,
+  //               prev_children_i,
+  //               children[i],
+  //               node,
+  //               node_index
+  //             )
+  //             if (is_array(children[i])) {
+  //               offset += Math.min(0, children[i].length - 1)
+  //             }
+  //             if (!prev_children_i && is_empty(children[i])) {
+  //               offset -= 1
+  //             }
+  //           }
+  //         }
+  //       }
+  //       return node;
+  //     }
+  //     // #region List
+  //     case Array: {
+  //       // log('-- LIST --')
+  //       // log(prev)
+  //       // log(curr)
+  //       // log('-- LIST END --')
+  //       const max = Math.max(prev.length, curr.length)
+  //       for (let i = 0; i < max; i++) {
+  //         if (i < curr.length) {
+  //           this.update(
+  //             node[i + index] || null,
+  //             prev[i] || false,
+  //             curr[i],
+  //             parent,
+  //             i + index
+  //           )
+  //         } else {
+  //           node[i + index].remove()
+  //         }
+  //       }
+  //       return node
+  //     }
+  //     case Number:
+  //     case String: {
+  //       if (is_html(node)) {
+  //         node.replaceWith(new Text(curr));
+  //         break
+  //       }
+  //       if (is_text_node(node)) {
+  //         if (node.nodeValue != curr) {
+  //           node.nodeValue = curr;
+  //         }
+  //       } else {
+  //         this.append_at(parent, curr, index)
+  //       }
+  //       break
+  //     }
+  //     case Boolean: {
+  //       if (is_node(node)) {
+  //         node.remove()
+  //         return null
+  //       }
+  //     }
+  //   }
+  // }
   append(element, node) {
     if (node == null) return;
     if (Array.isArray(node)) {
@@ -316,22 +356,25 @@ var Element = class {
         this.props[key] = props[key];
       }
     }
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      switch (child.constructor) {
-        case String:
-        case Number:
-          children[i] = new Text(child);
-          break;
-        case Boolean:
-          children[i] = null;
+    try {
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (child == null) continue;
+        switch (child.constructor) {
+          case String:
+          case Number:
+            children[i] = new Text(child);
+            break;
+          case Boolean:
+            children[i] = null;
+        }
       }
+    } catch (err) {
+      console.log(err);
+      debugger;
     }
   }
 };
-function is_array(value) {
-  return Array.isArray(value);
-}
 function is_object(value) {
   return value instanceof Object;
 }
@@ -350,65 +393,55 @@ function is_node(value) {
     return value;
   }
 }
-function is_node_list(value) {
-  if (value instanceof NodeList) {
-    return true;
-  }
-}
-function is_empty(value) {
-  if (typeof value == "number" || typeof value == "string") {
-    return false;
-  }
-  if (is_array(value)) {
-    return value.length == 0;
-  }
-  return value == false || value == null;
-}
 function log(...m) {
   console.log(...m);
 }
 
 // plugin-rce/client/create.ts
-var REACTIVE = Symbol("react");
+var STATE2 = Symbol("state");
 var REF = Symbol("ref");
 function create(props) {
   const $ = {
     props,
-    state_map: [],
+    features: [],
     template: {},
     state(value) {
-      const index = this.state_map.length;
-      this.state_map[index] = {
+      const index = this.features.length;
+      this.features[index] = {
         value,
         index,
-        $$type: REACTIVE
+        $$type: STATE2
       };
-      return this.state_map[index];
+      return this.features[index];
     },
     ref(value) {
-      const index = this.state_map.length;
-      this.state_map[index] = {
+      const index = this.features.length;
+      this.features[index] = {
         value,
         index,
         $$type: REF
       };
-      return this.state_map[index];
+      return this.features[index];
     },
-    is_state(value) {
-      if (typeof value == "object" && value?.$$type == REACTIVE) return true;
-      return false;
-    },
-    get_state(value) {
+    get_feature(value) {
       return value.value;
     },
-    set_state(state, value) {
-      this.state_map[state.index].value = value;
+    set_feature(feature, value) {
+      this.features[feature.index].value = value;
+    },
+    is_state(value) {
+      if (typeof value == "object" && value?.$$type == STATE2) return true;
+      return false;
+    },
+    is_ref(value) {
+      if (typeof value == "object" && value?.$$type == REF) return true;
+      return false;
     },
     get(getters) {
-      const self_ = this;
+      const self = this;
       const ret2 = getters.map((getter) => {
-        if (self_.is_state(getter)) {
-          return self_.get_state(getter);
+        if (self.is_state(getter) || self.is_ref(getter)) {
+          return self.get_feature(getter);
         }
         return getter;
       });
@@ -418,7 +451,7 @@ function create(props) {
       let index = 0;
       for (const setter of setters) {
         if (this.is_state(setter)) {
-          this.set_state(setter, getters[index]);
+          this.set_feature(setter, getters[index]);
         }
         index++;
       }
@@ -436,18 +469,12 @@ function create(props) {
     render() {
     }
   };
-  const ret = Object.assign((getter, setter) => {
-    if (Array.isArray(getter) && Array.isArray(setter)) {
-      console.log("set");
-      $.set(getter, setter);
-      $.render();
-      return;
-    }
+  const ret = Object.assign((getter) => {
     if (Array.isArray(getter)) {
       return $.get(getter);
     }
     if ($.is_state(getter)) {
-      return $.get_state(getter);
+      return $.get_feature(getter);
     }
     return getter;
   }, $);
